@@ -1,5 +1,9 @@
 // Popup 逻辑
 
+import { escapeHtml, generateId } from '../shared/utils.js';
+import { detectEncoding } from '../shared/encoding.js';
+import { getBooks, saveBook, deleteBook } from '../shared/storage.js';
+
 const STORAGE_KEYS = {
   BOOKS: 'books',
   SETTINGS: 'settings'
@@ -202,64 +206,6 @@ function parseChapters(text) {
   return chapters;
 }
 
-function detectEncoding(arrayBuffer) {
-  const uint8 = new Uint8Array(arrayBuffer);
-
-  // 检查 BOM
-  if (uint8.length >= 3 && uint8[0] === 0xEF && uint8[1] === 0xBB && uint8[2] === 0xBF) {
-    return 'UTF-8';
-  }
-  if (uint8.length >= 2) {
-    if (uint8[0] === 0xFF && uint8[1] === 0xFE) return 'UTF-16LE';
-    if (uint8[0] === 0xFE && uint8[1] === 0xFF) return 'UTF-16BE';
-  }
-
-  const sampleSize = Math.min(100000, arrayBuffer.byteLength);
-  const sample = arrayBuffer.slice(0, sampleSize);
-
-  // 尝试 UTF-8 并检测是否有替换字符（乱码特征）
-  const textUTF8 = new TextDecoder('UTF-8').decode(sample);
-  const utf8ReplacementCount = (textUTF8.match(/�/g) || []).length;
-  const chineseCountUTF8 = countChinese(textUTF8);
-
-  // 如果 UTF-8 替换字符很少或中文字符比例合理，认为是 UTF-8
-  if (utf8ReplacementCount < 10 && (chineseCountUTF8 / textUTF8.length > 0.05 || textUTF8.length < 1000)) {
-    return 'UTF-8';
-  }
-
-  // 尝试 GBK
-  const textGBK = new TextDecoder('GBK').decode(sample);
-  const chineseCountGBK = countChinese(textGBK);
-  if (chineseCountGBK / textGBK.length > 0.2) {
-    return 'GBK';
-  }
-
-  // 尝试 GB18030
-  const textGB18030 = new TextDecoder('GB18030').decode(sample);
-  const chineseCountGB18030 = countChinese(textGB18030);
-  if (chineseCountGB18030 / textGB18030.length > 0.2) {
-    return 'GB18030';
-  }
-
-  // 默认返回 UTF-8
-  return 'UTF-8';
-}
-
-function countChinese(text) {
-  const matches = text.match(/[一-龥]/g);
-  return matches ? matches.length : 0;
-}
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
 uploadBtn.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', async (e) => {
@@ -328,30 +274,5 @@ confirmDeleteBtn.addEventListener('click', async () => {
   confirmDialog.classList.remove('show');
   deleteTargetBookId = null;
 });
-
-// Storage API wrappers
-function getBooks() {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'GET_BOOKS' }, (result) => {
-      console.log('GET_BOOKS result:', result);
-      resolve(result || []);
-    });
-  });
-}
-
-function saveBook(book) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'SAVE_BOOK', book }, (result) => {
-      console.log('SAVE_BOOK result:', result);
-      resolve(result);
-    });
-  });
-}
-
-function deleteBook(bookId) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'DELETE_BOOK', bookId }, resolve);
-  });
-}
 
 loadBooks();
