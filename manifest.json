@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "小说阅读器",
+  "version": "1.0",
+  "description": "本地小说阅读器，支持TXT文件、自动章节解析、护眼模式",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "unlimitedStorage"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["pages/*", "shared/*", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

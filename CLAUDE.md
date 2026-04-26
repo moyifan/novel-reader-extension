@@ -1,45 +1,59 @@
-# CLAUDE.md
+# Claude Code
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Flask-based novel reader that allows uploading `.txt` files and reading them chapter-by-chapter with automatic encoding detection and chapter parsing.
+Chrome Extension novel reader. Upload `.txt` files, auto-detect encoding, parse chapters, and read with eye-care themes.
 
-## Running the App
+## Loading the Extension
 
-```bash
-python book.py
-```
-
-App runs at `http://127.0.0.1:5000`. The Flask debug mode is enabled in `book.py`.
-
-## Dependencies
-
-Install via `pip install -r requirements.txt`:
-- Flask
-- chardet (for encoding detection)
+1. Open `chrome://extensions/`
+2. Enable **Developer mode** (top right toggle)
+3. Click **Load unpacked**
+4. Select this directory
 
 ## Architecture
 
-- **book.py**: Main Flask application. Contains all routes, chapter parsing logic, and file handling. Chapters stored in a global `chapters` list as tuples of `(title, content)`.
-- **templates/**: Jinja2 templates
-  - `index.html` - file upload form
-  - `chapter.html` - reading view with chapter navigation
-- **uploads/**: Stores uploaded `uploaded_novel.txt` (git-ignored)
+```text
+background/
+  service-worker.js    # Message routing, data persistence via chrome.storage
+content/
+  content-script.js    # Keyboard shortcuts (←/→ for chapter nav)
+popup/
+  popup.html           # Main UI (book list, upload button)
+  popup.js             # Upload logic, file reading
+pages/
+  reader.html          # Reading page
+  reader.css           # 4 theme styles
+  reader.js            # Chapter nav, settings, bookmarks
+  settings.html        # Standalone settings page
+  settings.js          # Settings logic
+shared/
+  constants.js         # Storage keys, default settings, themes, regex
+  encoding.js          # TextDecoder-based encoding detection
+  parser.js            # Chapter splitting with regex
+  storage.js           # chrome.storage API wrappers
+  utils.js             # escapeHtml, generateId, showToast
+icons/
+  icon16.png, icon48.png, icon128.png
+manifest.json          # MV3 extension manifest
+```
+
+## Key Patterns
+
+- All storage access via `chrome.runtime.sendMessage` to service worker
+- No ES module imports in popup/page scripts (compatibility issue)
+- Inline helper functions where needed
+- Service worker handles: books, settings, bookmarks CRUD
 
 ## Chapter Parsing
 
-Chapters are split using regex: `r'(\n第[一二三四五六七八九十百千万1234567890]+[章节].*\n)'`
-The first segment before the first chapter marker becomes the "前言" (preface).
+Regex: `/\n第[一二三四五六七八九十百千万1234567890]+[章节].*\n/`
 
-## Key Routes
+## Themes
 
-| Route | Purpose |
-|-------|---------|
-| `/` | Show upload form or redirect to chapter 1 |
-| `/upload` | POST - save uploaded file and redirect to chapter |
-| `/delete` | POST - remove uploaded file and reset |
-| `/<int:chapter>` | Render specific chapter |
-
-Encoding detection falls back from detected encoding → UTF-8 → detected encoding with `errors='ignore'`.
+- `light` - white background
+- `sepia` - warm paper
+- `dark` - dark mode
+- `eye-care` - green background (default)

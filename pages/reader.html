@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小说阅读器</title>
+  <link rel="stylesheet" href="reader.css">
+</head>
+<body data-theme="eye-care">
+  <!-- 顶部导航栏 -->
+  <header class="reader-header">
+    <button class="menu-btn" id="menuBtn">☰</button>
+    <h1 class="book-title" id="bookTitle">加载中...</h1>
+    <div class="header-actions">
+      <button class="icon-btn bookmark-btn" id="bookmarkBtn" title="添加书签">🔖</button>
+      <button class="icon-btn settings-btn" id="settingsBtn" title="设置">⚙</button>
+      <button class="icon-btn close-btn" id="closeBtn" title="关闭">×</button>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="reader-content">
+    <h2 class="chapter-title" id="chapterTitle">章节标题</h2>
+    <div id="content" class="chapter-content">
+      <!-- 段落内容 -->
+    </div>
+  </main>
+
+  <!-- 底部导航栏 -->
+  <footer class="reader-footer">
+    <button class="nav-btn prev-btn" id="prevBtn">◀ 上一章</button>
+    <span class="progress" id="progress">1 / 120</span>
+    <button class="nav-btn next-btn" id="nextBtn">下一章 ▶</button>
+  </footer>
+
+  <!-- 目录侧边栏 -->
+  <aside class="toc-panel hidden" id="tocPanel">
+    <div class="toc-header">
+      <h3>目录</h3>
+      <button class="icon-btn close-toc" id="closeToc">×</button>
+    </div>
+    <ul class="toc-list" id="tocList">
+      <!-- 章节列表 -->
+    </ul>
+  </aside>
+
+  <!-- 设置面板 -->
+  <div class="settings-overlay hidden" id="settingsOverlay">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h3>阅读设置</h3>
+        <button class="icon-btn close-settings" id="closeSettings">×</button>
+      </div>
+
+      <div class="settings-group">
+        <label>字体大小</label>
+        <div class="font-size-control">
+          <button class="size-btn" id="fontDecrease">-</button>
+          <span class="font-size-value" id="fontSizeValue">18px</span>
+          <button class="size-btn" id="fontIncrease">+</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <label>行高</label>
+        <input type="range" id="lineHeightSlider" min="1.5" max="2.5" step="0.1" value="1.8">
+      </div>
+
+      <div class="settings-group">
+        <label>背景颜色</label>
+        <div class="theme-buttons">
+          <button class="theme-btn" data-theme="light" title="白天">☀</button>
+          <button class="theme-btn" data-theme="sepia" title="护眼">📜</button>
+          <button class="theme-btn" data-theme="dark" title="夜间">🌙</button>
+          <button class="theme-btn active" data-theme="eye-care" title="深色">🌿</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <label>翻页方式</label>
+        <div class="page-flip-options">
+          <label><input type="radio" name="pageFlip" value="none"> 无</label>
+          <label><input type="radio" name="pageFlip" value="click"> 点击</label>
+          <label><input type="radio" name="pageFlip" value="scroll"> 滚动</label>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <label>自动阅读</label>
+        <div class="auto-read-options">
+          <label><input type="radio" name="autoRead" value="off" checked> 关闭</label>
+          <label><input type="radio" name="autoRead" value="30"> 30秒</label>
+          <label><input type="radio" name="autoRead" value="60"> 60秒</label>
+        </div>
+      </div>
+
+      <button class="btn-save" id="saveSettings">保存设置</button>
+    </div>
+  </div>
+
+  <!-- 书签列表面板 -->
+  <div class="bookmarks-overlay hidden" id="bookmarksOverlay">
+    <div class="bookmarks-panel">
+      <div class="bookmarks-header">
+        <h3>书签</h3>
+        <button class="icon-btn close-bookmarks" id="closeBookmarks">×</button>
+      </div>
+      <ul class="bookmarks-list" id="bookmarksList">
+        <!-- 书签列表 -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast hidden" id="toast">提示信息</div>
+
+  <script src="../shared/storage.js" type="module"></script>
+  <script src="../shared/parser.js" type="module"></script>
+  <script src="reader.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>阅读设置</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 360px;
+      min-height: 480px;
+      font-family: 'Source Han Serif SC', '宋体', serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+
+    h2 {
+      font-size: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+
+    .settings-section {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .setting-label {
+      font-size: 14px;
+    }
+
+    .setting-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .size-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .size-btn:hover {
+      background: #f0f0f0;
+    }
+
+    .size-value {
+      min-width: 40px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    input[type="range"] {
+      width: 120px;
+      height: 4px;
+      -webkit-appearance: none;
+      background: #ddd;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #4CAF50;
+      cursor: pointer;
+    }
+
+    .theme-options {
+      display: flex;
+      gap: 8px;
+    }
+
+    .theme-btn {
+      width: 48px;
+      height: 40px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      position: relative;
+    }
+
+    .theme-btn.active {
+      border-color: #4CAF50;
+    }
+
+    .theme-btn.active::after {
+      content: '✓';
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-size: 10px;
+      color: #4CAF50;
+    }
+
+    .theme-btn[data-theme="light"] { background: #fff; }
+    .theme-btn[data-theme="sepia"] { background: #F4ECD8; }
+    .theme-btn[data-theme="dark"] { background: #1A1A1A; color: #fff; }
+    .theme-btn[data-theme="eye-care"] { background: #C8E6C9; }
+
+    .radio-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-save {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      background: #4CAF50;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .btn-save:hover {
+      background: #45a049;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .toast.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>阅读设置</h2>
+
+  <div class="settings-section">
+    <div class="section-title">显示</div>
+
+    <div class="setting-item">
+      <span class="setting-label">字体大小</span>
+      <div class="setting-control">
+        <button class="size-btn" id="fontDecrease">-</button>
+        <span class="size-value" id="fontSizeValue">18px</span>
+        <button class="size-btn" id="fontIncrease">+</button>
+      </div>
+    </div>
+
+    <div class="setting-item">
+      <span class="setting-label">行高</span>
+      <input type="range" id="lineHeightSlider" min="1.5" max="2.5" step="0.1" value="1.8">
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="section-title">主题</div>
+    <div class="theme-options">
+      <button class="theme-btn" data-theme="light" title="白天">☀</button>
+      <button class="theme-btn" data-theme="sepia" title="护眼">📜</button>
+      <button class="theme-btn" data-theme="dark" title="夜间">🌙</button>
+      <button class="theme-btn active" data-theme="eye-care" title="深色">🌿</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="section-title">翻页方式</div>
+    <div class="radio-group">
+      <label><input type="radio" name="pageFlip" value="none"> 无</label>
+      <label><input type="radio" name="pageFlip" value="click"> 点击</label>
+      <label><input type="radio" name="pageFlip" value="scroll"> 滚动</label>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="section-title">自动阅读</div>
+    <div class="radio-group">
+      <label><input type="radio" name="autoRead" value="off" checked> 关闭</label>
+      <label><input type="radio" name="autoRead" value="30"> 30秒</label>
+      <label><input type="radio" name="autoRead" value="60"> 60秒</label>
+    </div>
+  </div>
+
+  <button class="btn-save" id="saveBtn">保存设置</button>
+  <div class="toast" id="toast">设置已保存</div>
+
+  <script src="../shared/storage.js" type="module"></script>
+  <script src="settings.js" type="module"></script>
+</body>
+</html>
