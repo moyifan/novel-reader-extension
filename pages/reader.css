@@ -119,11 +119,11 @@ body {
 }
 
 .toc-list li {
-  padding: 10px 20px;
+  padding: 8px 16px;
   cursor: pointer;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  font-size: 13px;
-  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+  color: rgba(255,255,255,0.75);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -156,13 +156,13 @@ body {
 
 
 .chapter-title {
-  font-size: 1.2em;
+  font-size: 1.1em;
   text-align: left;
-  margin-bottom: 28px;
-  color: var(--accent);
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-  font-weight: 500;
+  margin-bottom: 20px;
+  color: var(--text);
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  font-weight: bold;
 }
 
 .chapter-content {
@@ -625,6 +625,49 @@ textarea {
   color: var(--text);
   opacity: 0.6;
   display: block;
+}
+
+/* 预加载章节缓冲区域 */
+.chapter-buffer {
+  border-top: 2px dashed var(--accent);
+  margin-top: 30px;
+  padding-top: 20px;
+  opacity: 0.85;
+}
+
+.chapter-buffer .chapter-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: var(--accent);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.chapter-next {
+  border-top-color: var(--accent);
+}
+
+.chapter-prev {
+  border-bottom: 2px dashed var(--accent);
+  border-top: none;
+  margin-top: 30px;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+}
+
+/* 章节区块（用于滚动加载） */
+.chapter-section {
+  min-height: 50px;
+}
+
+.chapter-section .chapter-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: var(--text);
+  margin: 30px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
 }
 
 .bookmark-delete {

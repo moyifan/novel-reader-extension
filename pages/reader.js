@@ -14,14 +14,13 @@ let speechSynthesis = window.speechSynthesis;
 let currentUtterance = null;
 let speechState = 'stopped'; // stopped, playing, paused
 
+
 // DOM 元素
 const bookTitle = document.getElementById('bookTitle');
-const chapterTitle = document.getElementById('chapterTitle');
 const contentDiv = document.getElementById('content');
 const readerMain = document.getElementById('readerMain');
 const tocSidebar = document.getElementById('tocSidebar');
 const tocList = document.getElementById('tocList');
-const menuBtn = document.getElementById('menuBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const bookmarkBtn = document.getElementById('bookmarkBtn');
 const closeTocBtn = document.getElementById('closeToc');
@@ -91,8 +90,6 @@ function showToast(message) {
   setTimeout(() => toast.classList.add('hidden'), 2000);
 }
 
-}
-
 function processContent(text) {
   let result = text;
 
@@ -109,7 +106,7 @@ function processContent(text) {
   return result;
 }
 
-function splitToParagraphs(content) {
+function splitToParagraphs(content, options = {}) {
   const lines = content.split('\n');
   const result = [];
 
@@ -121,6 +118,158 @@ function splitToParagraphs(content) {
   }
 
   return result.join('\n');
+}
+
+// 滚动加载和目录联动逻辑
+let isLoadingNextChapter = false; // 防止重复加载
+let loadedChapterCount = 1; // 已加载的章节数量（默认第一章）
+
+function handleScroll() {
+  if (speechState !== 'stopped') return;
+
+  const scrollTop = readerMain.scrollTop;
+  const scrollHeight = readerMain.scrollHeight;
+  const clientHeight = readerMain.clientHeight;
+  const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+
+  // 距离底部小于 400px 时加载下一章（原脚本的 remain_height 默认值）
+  if (distanceToBottom < 400 && !isLoadingNextChapter) {
+    loadNextChapter();
+  }
+
+  // 更新目录高亮
+  updateTOCByScroll();
+}
+
+// 加载下一章内容（追加到当前内容底部）
+function loadNextChapter() {
+  // 已经是最后一章
+  if (loadedChapterCount >= book.totalChapters) {
+    showToast('已到达最后一章');
+    return;
+  }
+
+  isLoadingNextChapter = true;
+
+  // 获取下一章内容（基于已加载的章节数量）
+  const nextChapter = book.chapters[loadedChapterCount];
+  if (!nextChapter) {
+    isLoadingNextChapter = false;
+    return;
+  }
+
+  const processedContent = processContent(nextChapter.content);
+  const chapterHtml = `<div class="chapter-section" data-chapter-index="${loadedChapterCount}">
+    <h2 class="chapter-title">${escapeHtml(nextChapter.title)}</h2>
+    ${splitToParagraphs(processedContent)}
+  </div>`;
+
+  contentDiv.insertAdjacentHTML('beforeend', chapterHtml);
+
+  // 更新已加载章节计数
+  loadedChapterCount++;
+
+  isLoadingNextChapter = false;
+}
+
+// 根据滚动位置更新目录高亮
+function updateTOCByScroll() {
+  const scrollTop = readerMain.scrollTop;
+  const clientHeight = readerMain.clientHeight;
+  const viewportMiddle = scrollTop + clientHeight / 2; // 视口中间位置
+
+  // 获取所有章节区块
+  const chapters = contentDiv.querySelectorAll('.chapter-section');
+  if (!chapters.length) return;
+
+  let activeIndex = 0;
+
+  // 找出当前视口中点的章节
+  chapters.forEach((chapter, index) => {
+    const rect = chapter.getBoundingClientRect();
+    const chapterTop = rect.top + scrollTop - readerMain.offsetTop;
+    const chapterBottom = chapterTop + rect.height;
+
+    // 如果视口中间在这个章节的范围内
+    if (viewportMiddle >= chapterTop && viewportMiddle < chapterBottom) {
+      activeIndex = index;
+    }
+  });
+
+  // 如果视口中间在最后一个章节之后
+  const lastChapter = chapters[chapters.length - 1];
+  if (lastChapter) {
+    const lastRect = lastChapter.getBoundingClientRect();
+    const lastTop = lastRect.top + scrollTop - readerMain.offsetTop;
+    if (viewportMiddle >= lastTop + lastRect.height) {
+      activeIndex = chapters.length - 1;
+    }
+  }
+
+  // 更新 currentChapterIndex
+  const chapterIndex = parseInt(chapters[activeIndex].dataset.chapterIndex) || activeIndex;
+  if (chapterIndex !== currentChapterIndex) {
+    currentChapterIndex = chapterIndex;
+    // 只更新目录高亮，不重新渲染内容
+    renderTOC();
+  }
+}
+
+// 跳转到指定章节（目录点击时调用）
+function scrollToChapter(index) {
+  if (index < 0 || index >= book.totalChapters) return;
+
+  // 清除预加载缓冲
+  clearBufferContent();
+
+  // 记录当前章节
+  currentChapterIndex = index;
+
+  // 如果目标章节还未加载，需要先加载之前的章节
+  if (index >= loadedChapterCount) {
+    // 重新渲染所有内容
+    rebuildContent(index);
+  } else {
+    // 内容已加载，直接滚动到目标位置
+    const targetChapter = contentDiv.querySelector(`[data-chapter-index="${index}"]`);
+    if (targetChapter) {
+      const rect = targetChapter.getBoundingClientRect();
+      readerMain.scrollTop = rect.top + readerMain.scrollTop - readerMain.offsetTop - 20;
+    }
+  }
+
+  // 更新目录高亮
+  renderTOC();
+}
+
+// 重建内容（当点击目录跳转到未加载的章节时）
+function rebuildContent(targetIndex) {
+  // 清除现有内容
+  contentDiv.innerHTML = '';
+  loadedChapterCount = 1;
+
+  // 重新渲染从第一章到目标章节的所有内容
+  for (let i = 0; i <= targetIndex; i++) {
+    const chapter = book.chapters[i];
+    const processedContent = processContent(chapter.content);
+    const chapterHtml = `<div class="chapter-section" data-chapter-index="${i}">
+      <h2 class="chapter-title">${escapeHtml(chapter.title)}</h2>
+      ${splitToParagraphs(processedContent)}
+    </div>`;
+    contentDiv.insertAdjacentHTML('beforeend', chapterHtml);
+    loadedChapterCount = i + 2;
+  }
+
+  // 滚动到目标章节
+  const targetChapter = contentDiv.querySelector(`[data-chapter-index="${targetIndex}"]`);
+  if (targetChapter) {
+    readerMain.scrollTop = targetChapter.offsetTop - 20;
+  }
+}
+
+// 清除预加载的缓冲内容
+function clearBufferContent() {
+  contentDiv.querySelectorAll('.chapter-buffer').forEach(el => el.remove());
 }
 
 // 应用皮肤
@@ -253,8 +402,14 @@ function renderBook() {
   // 处理内容（繁简转换、拼音字修复）
   const processedContent = processContent(chapter.content);
 
-  chapterTitle.textContent = chapter.title;
-  contentDiv.innerHTML = splitToParagraphs(processedContent);
+  // 使用章节区块结构（支持滚动加载）
+  contentDiv.innerHTML = `<div class="chapter-section" data-chapter-index="${currentChapterIndex}">
+    <h2 class="chapter-title">${escapeHtml(chapter.title)}</h2>
+    ${splitToParagraphs(processedContent)}
+  </div>`;
+
+  // 重置已加载章节计数
+  loadedChapterCount = 1;
 
   // 更新目录高亮
   renderTOC();
@@ -271,25 +426,6 @@ function renderTOC() {
     <li data-index="${index}" class="${index === currentChapterIndex ? 'active' : ''}">${escapeHtml(ch.title)}</li>
   `).join('');
 
-}
-
-// 跳转到章节
-function scrollToChapter(index) {
-  if (index < 0 || index >= book.totalChapters) return;
-  currentChapterIndex = index;
-
-  // 重新渲染内容
-  const chapter = book.chapters[index];
-  const processedContent = processContent(chapter.content);
-  chapterTitle.textContent = chapter.title;
-  contentDiv.innerHTML = splitToParagraphs(processedContent);
-
-  // 滚动到顶部
-  readerMain.scrollTop = 0;
-
-  // 更新目录高亮
-  renderTOC();
-  saveProgress();
 }
 
 // 保存阅读进度
@@ -505,7 +641,6 @@ function toggleTOC(show) {
   }
 }
 
-menuBtn.addEventListener('click', () => toggleTOC());
 closeTocBtn.addEventListener('click', () => toggleTOC(false));
 // 目录点击事件 - 使用事件委托
 tocList.addEventListener('click', (e) => {
@@ -652,6 +787,9 @@ bookmarkBtn.addEventListener('dblclick', async () => {
 readerMain.addEventListener('scroll', () => {
   if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
   scrollSaveTimer = setTimeout(saveProgress, 500);
+
+  // 处理滚动加载和目录联动
+  handleScroll();
 });
 
 // 页面可见性变化
