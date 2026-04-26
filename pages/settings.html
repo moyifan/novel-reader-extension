@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>阅读设置</title>
   <style>
     * {
@@ -11,12 +12,11 @@
     }
 
     body {
-      width: 360px;
-      min-height: 480px;
       font-family: 'Source Han Serif SC', '宋体', serif;
       background: #f5f5f5;
       color: #333;
       padding: 20px;
+      min-height: 100vh;
     }
 
     h2 {
@@ -39,23 +39,57 @@
       margin-bottom: 12px;
       padding-bottom: 8px;
       border-bottom: 1px solid #eee;
+      font-weight: normal;
     }
 
     .setting-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
+      margin-bottom: 12px;
+    }
+
+    .setting-item:last-child {
+      margin-bottom: 0;
     }
 
     .setting-label {
       font-size: 14px;
+      display: block;
+      margin-bottom: 6px;
     }
 
-    .setting-control {
+    .setting-label span {
+      color: #999;
+      font-size: 12px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+    }
+
+    .size-control {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
     }
 
     .size-btn {
@@ -73,40 +107,40 @@
     }
 
     .size-value {
-      min-width: 40px;
+      min-width: 50px;
       text-align: center;
       font-size: 14px;
     }
 
     input[type="range"] {
-      width: 120px;
-      height: 4px;
+      width: 100%;
+      height: 6px;
       -webkit-appearance: none;
       background: #ddd;
-      border-radius: 2px;
+      border-radius: 3px;
     }
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
       background: #4CAF50;
       cursor: pointer;
     }
 
-    .theme-options {
-      display: flex;
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
     }
 
     .theme-btn {
-      width: 48px;
       height: 40px;
       border: 2px solid #ddd;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 12px;
       position: relative;
     }
 
@@ -123,17 +157,31 @@
       color: #4CAF50;
     }
 
-    .theme-btn[data-theme="light"] { background: #fff; }
-    .theme-btn[data-theme="sepia"] { background: #F4ECD8; }
-    .theme-btn[data-theme="dark"] { background: #1A1A1A; color: #fff; }
-    .theme-btn[data-theme="eye-care"] { background: #C8E6C9; }
+    .theme-btn[data-skin="缺省皮肤"] { background: #C8E6C9; }
+    .theme-btn[data-skin="暗色皮肤"] { background: rgba(0,0,0,0.1); }
+    .theme-btn[data-skin="白底黑字"] { background: #fff; color: #000; border-color: #ccc; }
+    .theme-btn[data-skin="夜间模式"] { background: #2d2d2d; color: #939392; }
+    .theme-btn[data-skin="夜间模式1"] { background: #121212; color: #679; }
+    .theme-btn[data-skin="夜间模式2"] { background: #121212; color: #AAAAAA; }
+    .theme-btn[data-skin="夜间模式（多看）"] { background: #101819; color: #4A4A4A; }
+    .theme-btn[data-skin="橙色背景"] { background: #FEF0E1; }
+    .theme-btn[data-skin="绿色背景"] { background: #d8e2c8; }
+    .theme-btn[data-skin="绿色背景2"] { background: #CCE8CF; }
+    .theme-btn[data-skin="蓝色背景"] { background: #E7F4FE; }
+    .theme-btn[data-skin="棕黄背景"] { background: #C2A886; }
+    .theme-btn[data-skin="经典皮肤"] { background: #EAEAEE; }
+    .theme-btn[data-skin="绿色亮字"] { background: #122814; color: #bbd7bc; }
+    .theme-btn[data-skin="图书双层"] { background: #ECE8D7; }
 
-    .radio-group {
+    .radio-group,
+    .checkbox-group {
       display: flex;
+      flex-wrap: wrap;
       gap: 12px;
     }
 
-    .radio-group label {
+    .radio-group label,
+    .checkbox-group label {
       display: flex;
       align-items: center;
       gap: 4px;
@@ -141,8 +189,17 @@
       font-size: 14px;
     }
 
+    .checkbox-group {
+      gap: 16px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
     .btn-save {
-      width: 100%;
+      flex: 1;
       padding: 14px;
       border: none;
       border-radius: 8px;
@@ -150,11 +207,24 @@
       color: #fff;
       font-size: 16px;
       cursor: pointer;
-      margin-top: 8px;
     }
 
     .btn-save:hover {
       background: #45a049;
+    }
+
+    .btn-reset {
+      padding: 14px 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      color: #666;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .btn-reset:hover {
+      background: #f0f0f0;
     }
 
     .toast {
@@ -167,67 +237,174 @@
       padding: 10px 20px;
       border-radius: 20px;
       font-size: 14px;
-      display: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
     }
 
     .toast.show {
-      display: block;
+      opacity: 1;
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
   <h2>阅读设置</h2>
 
+  <!-- 皮肤主题 -->
   <div class="settings-section">
-    <div class="section-title">显示</div>
-
+    <h3 class="section-title">皮肤主题</h3>
     <div class="setting-item">
-      <span class="setting-label">字体大小</span>
-      <div class="setting-control">
+      <div class="theme-grid" id="skinGrid">
+        <button class="theme-btn" data-skin="缺省皮肤">缺省</button>
+        <button class="theme-btn" data-skin="暗色皮肤">暗色</button>
+        <button class="theme-btn" data-skin="白底黑字">白底</button>
+        <button class="theme-btn" data-skin="夜间模式">夜间</button>
+        <button class="theme-btn" data-skin="夜间模式1">夜1</button>
+        <button class="theme-btn" data-skin="夜间模式2">夜2</button>
+        <button class="theme-btn" data-skin="夜间模式（多看）">多看</button>
+        <button class="theme-btn" data-skin="橙色背景">橙色</button>
+        <button class="theme-btn" data-skin="绿色背景">绿色</button>
+        <button class="theme-btn" data-skin="绿色背景2">绿2</button>
+        <button class="theme-btn" data-skin="蓝色背景">蓝色</button>
+        <button class="theme-btn" data-skin="棕黄背景">棕黄</button>
+        <button class="theme-btn" data-skin="经典皮肤">经典</button>
+        <button class="theme-btn" data-skin="绿色亮字">绿亮</button>
+        <button class="theme-btn" data-skin="图书双层">图书</button>
+      </div>
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">自定义 CSS</label>
+      <textarea id="extraCss" placeholder="输入自定义 CSS..."></textarea>
+    </div>
+  </div>
+
+  <!-- 字体排版 -->
+  <div class="settings-section">
+    <h3 class="section-title">字体排版</h3>
+    <div class="setting-item">
+      <label class="setting-label">字体</label>
+      <select id="fontFamily">
+        <option value="Source Han Serif SC">思源宋体</option>
+        <option value="宋体">宋体</option>
+        <option value="黑体">黑体</option>
+        <option value="微软雅黑">微软雅黑</option>
+        <option value="楷体">楷体</option>
+        <option value="serif">serif</option>
+        <option value="sans-serif">sans-serif</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">
+        字号 <span id="fontSizeDisplay">18px</span>
+      </label>
+      <div class="size-control">
         <button class="size-btn" id="fontDecrease">-</button>
-        <span class="size-value" id="fontSizeValue">18px</span>
+        <input type="range" id="fontSize" min="14" max="28" value="18">
         <button class="size-btn" id="fontIncrease">+</button>
       </div>
     </div>
-
     <div class="setting-item">
-      <span class="setting-label">行高</span>
-      <input type="range" id="lineHeightSlider" min="1.5" max="2.5" step="0.1" value="1.8">
+      <label class="setting-label">
+        行高 <span id="lineHeightDisplay">1.8</span>
+      </label>
+      <input type="range" id="lineHeight" min="1.2" max="2.5" step="0.1" value="1.8">
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">
+        段落间距 <span id="paragraphHeightDisplay">1em</span>
+      </label>
+      <input type="range" id="paragraphHeight" min="0.5" max="2" step="0.1" value="1">
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">内容宽度</label>
+      <input type="text" id="contentWidth" value="800px" placeholder="如: 800px, 100%">
     </div>
   </div>
 
+  <!-- 繁简转换 -->
   <div class="settings-section">
-    <div class="section-title">主题</div>
-    <div class="theme-options">
-      <button class="theme-btn" data-theme="light" title="白天">☀</button>
-      <button class="theme-btn" data-theme="sepia" title="护眼">📜</button>
-      <button class="theme-btn" data-theme="dark" title="夜间">🌙</button>
-      <button class="theme-btn active" data-theme="eye-care" title="深色">🌿</button>
+    <h3 class="section-title">语言</h3>
+    <div class="setting-item">
+      <label class="setting-label">繁简转换</label>
+      <div class="radio-group">
+        <label><input type="radio" name="chineseConversion" value="disable"> 关闭</label>
+        <label><input type="radio" name="chineseConversion" value="to-tw"> 转繁体</label>
+        <label><input type="radio" name="chineseConversion" value="to-cn"> 转简体</label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">自定义替换规则</label>
+      <textarea id="customReplaceRules" placeholder="每行一条，格式: 原文字=替换文字&#10;示例: b[āà]ng=棒"></textarea>
+      <div class="help-text">用于修复拼音字等问题，每行一个规则</div>
     </div>
   </div>
 
+  <!-- 快捷键 -->
   <div class="settings-section">
-    <div class="section-title">翻页方式</div>
-    <div class="radio-group">
-      <label><input type="radio" name="pageFlip" value="none"> 无</label>
-      <label><input type="radio" name="pageFlip" value="click"> 点击</label>
-      <label><input type="radio" name="pageFlip" value="scroll"> 滚动</label>
+    <h3 class="section-title">快捷键</h3>
+    <div class="setting-item">
+      <label class="setting-label">安静模式</label>
+      <input type="text" id="quietModeKey" value="q" maxlength="1" style="width:60px;">
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">打开设置</label>
+      <input type="text" id="openPreferencesKey" value="s" maxlength="1" style="width:60px;">
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">显示/隐藏目录</label>
+      <input type="text" id="hideMenuListKey" value="c" maxlength="1" style="width:60px;">
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">语音朗读</label>
+      <input type="text" id="openSpeechKey" value="a" maxlength="1" style="width:60px;">
     </div>
   </div>
 
+  <!-- 语音设置 -->
   <div class="settings-section">
-    <div class="section-title">自动阅读</div>
-    <div class="radio-group">
-      <label><input type="radio" name="autoRead" value="off" checked> 关闭</label>
-      <label><input type="radio" name="autoRead" value="30"> 30秒</label>
-      <label><input type="radio" name="autoRead" value="60"> 60秒</label>
+    <h3 class="section-title">语音朗读</h3>
+    <div class="setting-item">
+      <label class="setting-label">语速 <span id="speechRateDisplay">1</span></label>
+      <input type="range" id="speechRate" min="0.5" max="3" step="0.1" value="1">
+    </div>
+    <div class="setting-item">
+      <label class="setting-label">音高 <span id="speechPitchDisplay">1</span></label>
+      <input type="range" id="speechPitch" min="0" max="2" step="0.1" value="1">
     </div>
   </div>
 
-  <button class="btn-save" id="saveBtn">保存设置</button>
+  <!-- 界面控制 -->
+  <div class="settings-section">
+    <h3 class="section-title">界面控制</h3>
+    <div class="setting-item">
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="menuListHidden"> 隐藏左侧目录</label>
+        <label><input type="checkbox" id="hidePreferencesButton"> 隐藏设置按钮</label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="dblclickPause" checked> 双击暂停自动滚动</label>
+        <label><input type="checkbox" id="scrollAnimate"> 滚动动画</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- 保存按钮 -->
+  <div class="btn-row">
+    <button class="btn-reset" id="resetBtn">恢复默认</button>
+    <button class="btn-save" id="saveBtn">保存设置</button>
+  </div>
+
   <div class="toast" id="toast">设置已保存</div>
 
-  <script src="../shared/storage.js" type="module"></script>
+  <script src="../shared/constants.js" type="module"></script>
   <script src="settings.js" type="module"></script>
 </body>
 </html>

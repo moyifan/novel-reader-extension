@@ -18,22 +18,31 @@ export function detectEncoding(arrayBuffer) {
   }
 
   // 预切片避免重复分配
-  const sample = arrayBuffer.slice(0, 50000);
-  const validRatio = countValidChineseChars;
+  const sample = arrayBuffer.slice(0, 100000);
 
-  // 尝试 UTF-8
-  const text = new TextDecoder('UTF-8').decode(sample);
-  if (!text.includes('') && (validRatio(text) / text.length > 0.1 || text.length < 100)) {
+  // 尝试 UTF-8 并检测是否有替换字符（乱码特征）
+  const textUTF8 = new TextDecoder('UTF-8').decode(sample);
+  const utf8ReplacementCount = (textUTF8.match(/�/g) || []).length;
+  const chineseCountUTF8 = countValidChineseChars(textUTF8);
+
+  // 如果 UTF-8 替换字符很少且中文字符比例合理，认为是 UTF-8
+  if (utf8ReplacementCount < 10 && (chineseCountUTF8 / textUTF8.length > 0.05 || textUTF8.length < 1000)) {
     return 'UTF-8';
   }
 
   // 尝试 GBK
   const textGBK = new TextDecoder('GBK').decode(sample);
-  if (validRatio(textGBK) / textGBK.length > 0.3) return 'GBK';
+  const chineseCountGBK = countValidChineseChars(textGBK);
+  if (chineseCountGBK / textGBK.length > 0.2) {
+    return 'GBK';
+  }
 
   // 尝试 GB18030
   const textGB18030 = new TextDecoder('GB18030').decode(sample);
-  if (validRatio(textGB18030) / textGB18030.length > 0.3) return 'GB18030';
+  const chineseCountGB18030 = countValidChineseChars(textGB18030);
+  if (chineseCountGB18030 / textGB18030.length > 0.2) {
+    return 'GB18030';
+  }
 
   return 'UTF-8';
 }

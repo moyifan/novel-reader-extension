@@ -67,25 +67,74 @@ function openReader(bookId) {
 }
 
 // 文件上传
-const CHAPTER_REGEX = /\n第[一二三四五六七八九十百千万1234567890]+[章节].*\n/;
+
+// 章节正则 - 匹配原脚本格式
+const CHAPTER_REGEX_LIST = [
+  /^第?\s*[一二两三四五六七八九十○零百千万亿0-9０１２３４５６７８９〇]{1,6}\s*[章回卷节折篇幕集话話]/im,
+];
 
 function parseChapters(text) {
-  const parts = text.split(CHAPTER_REGEX);
   const chapters = [];
+  const lines = text.split('\n');
 
-  const preface = parts[0]?.trim();
-  if (preface && preface.length > 10) {
-    chapters.push({ title: '前言', content: preface });
+  let currentChapter = null;
+  let currentContent = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    // 检查是否是章节标题
+    let isChapterTitle = false;
+    let matchedTitle = null;
+
+    for (const regex of CHAPTER_REGEX_LIST) {
+      const match = trimmedLine.match(regex);
+      if (match) {
+        isChapterTitle = true;
+        matchedTitle = match[0].replace(/^\n/, '').trim();
+        break;
+      }
+    }
+
+    if (isChapterTitle) {
+      // 保存上一个章节
+      if (currentChapter !== null) {
+        const content = currentContent.join('\n').trim();
+        if (content.length > 0) {
+          chapters.push({
+            title: currentChapter,
+            content: content
+          });
+        }
+      }
+      // 开始新章节
+      currentChapter = matchedTitle || trimmedLine;
+      currentContent = [];
+    } else {
+      // 内容行
+      if (currentChapter !== null) {
+        currentContent.push(line);
+      }
+    }
   }
 
-  for (let i = 1; i < parts.length; i += 2) {
-    const rawTitle = parts[i] || '';
-    const content = parts[i + 1]?.trim() || '';
-    const title = rawTitle.replace(/\n/g, '').trim() || `第${Math.ceil(i / 2)}章`;
-
+  // 保存最后一个章节
+  if (currentChapter !== null) {
+    const content = currentContent.join('\n').trim();
     if (content.length > 0) {
-      chapters.push({ title, content });
+      chapters.push({
+        title: currentChapter,
+        content: content
+      });
     }
+  }
+
+  // 如果没有找到章节，整篇小说作为一章
+  if (chapters.length === 0) {
+    chapters.push({
+      title: '前言',
+      content: text.trim()
+    });
   }
 
   return chapters;
@@ -94,6 +143,7 @@ function parseChapters(text) {
 function detectEncoding(arrayBuffer) {
   const uint8 = new Uint8Array(arrayBuffer);
 
+  // 检查 BOM
   if (uint8.length >= 3 && uint8[0] === 0xEF && uint8[1] === 0xBB && uint8[2] === 0xBF) {
     return 'UTF-8';
   }
@@ -102,18 +152,34 @@ function detectEncoding(arrayBuffer) {
     if (uint8[0] === 0xFE && uint8[1] === 0xFF) return 'UTF-16BE';
   }
 
-  const sample = arrayBuffer.slice(0, 50000);
-  const text = new TextDecoder('UTF-8').decode(sample);
-  if (!text.includes('') && (countChinese(text) / text.length > 0.1 || text.length < 100)) {
+  const sampleSize = Math.min(100000, arrayBuffer.byteLength);
+  const sample = arrayBuffer.slice(0, sampleSize);
+
+  // 尝试 UTF-8 并检测是否有替换字符（乱码特征）
+  const textUTF8 = new TextDecoder('UTF-8').decode(sample);
+  const utf8ReplacementCount = (textUTF8.match(/�/g) || []).length;
+  const chineseCountUTF8 = countChinese(textUTF8);
+
+  // 如果 UTF-8 替换字符很少或中文字符比例合理，认为是 UTF-8
+  if (utf8ReplacementCount < 10 && (chineseCountUTF8 / textUTF8.length > 0.05 || textUTF8.length < 1000)) {
     return 'UTF-8';
   }
 
+  // 尝试 GBK
   const textGBK = new TextDecoder('GBK').decode(sample);
-  if (countChinese(textGBK) / textGBK.length > 0.3) return 'GBK';
+  const chineseCountGBK = countChinese(textGBK);
+  if (chineseCountGBK / textGBK.length > 0.2) {
+    return 'GBK';
+  }
 
+  // 尝试 GB18030
   const textGB18030 = new TextDecoder('GB18030').decode(sample);
-  if (countChinese(textGB18030) / textGB18030.length > 0.3) return 'GB18030';
+  const chineseCountGB18030 = countChinese(textGB18030);
+  if (chineseCountGB18030 / textGB18030.length > 0.2) {
+    return 'GB18030';
+  }
 
+  // 默认返回 UTF-8
   return 'UTF-8';
 }
 

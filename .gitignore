@@ -1,9 +1,7 @@
 # Claude Code
 .claude/
 
-# IDE
-.vscode/
-
-# OS
-.DS_Store
-Thumbs.db
+# temp
+.temp/
+memory/
+CLAUDE.md
