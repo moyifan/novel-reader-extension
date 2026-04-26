@@ -2,8 +2,7 @@
 
 const STORAGE_KEYS = {
   BOOKS: 'books',
-  SETTINGS: 'settings',
-  BOOKMARKS: 'bookmarks'
+  SETTINGS: 'settings'
 };
 
 // DOM 元素
@@ -69,9 +68,44 @@ function openReader(bookId) {
 // 文件上传
 
 // 章节正则 - 匹配原脚本格式
+// 数字: 0-9 半角 + ０-９ 全角 + 中文数字(简繁)
+// 章节单位: 章/回/卷/节/折/篇/幕/集/話
+// 注意: 末尾的 [^\n]* 用于捕获章节名
 const CHAPTER_REGEX_LIST = [
-  /^第?\s*[一二两三四五六七八九十○零百千万亿0-9０１２３４５６７８９〇]{1,6}\s*[章回卷节折篇幕集话話]/im,
+  /^第?\s*[0-9０-９〇一二两三四五六七八九十○零百千万亿兩]{1,6}\s*[章节回卷节折篇幕集话話][^\n]*/im,
 ];
+
+// 章节关键字列表
+const CHAPTER_KEYWORDS = ['章', '回', '卷', '节', '折', '篇', '幕', '集', '話'];
+
+/**
+ * 检查是否是真正的章节标题行
+ * 排除"一回生"等误匹配
+ * 但允许"第1章 性偶"这种章节名
+ */
+function isRealChapterTitle(line, matchedPart) {
+  if (!matchedPart) return true;
+
+  let keywordIndex = -1;
+  for (const kw of CHAPTER_KEYWORDS) {
+    const idx = matchedPart.indexOf(kw);
+    if (idx !== -1) {
+      keywordIndex = idx;
+      break;
+    }
+  }
+
+  if (keywordIndex === -1) return true;
+
+  const afterKeyword = matchedPart.substring(keywordIndex + 1);
+
+  // 如果章节关键字后紧跟中文字（没有空格分隔），是误匹配
+  if (afterKeyword.length > 0 && afterKeyword[0] !== ' ' && /[一-龥]/.test(afterKeyword[0])) {
+    return false;
+  }
+
+  return true;
+}
 
 function parseChapters(text) {
   const chapters = [];
@@ -80,7 +114,8 @@ function parseChapters(text) {
   let currentChapter = null;
   let currentContent = [];
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmedLine = line.trim();
 
     // 检查是否是章节标题
@@ -90,9 +125,12 @@ function parseChapters(text) {
     for (const regex of CHAPTER_REGEX_LIST) {
       const match = trimmedLine.match(regex);
       if (match) {
-        isChapterTitle = true;
         matchedTitle = match[0].replace(/^\n/, '').trim();
-        break;
+        // 检查是否是真正的章节标题
+        if (isRealChapterTitle(trimmedLine, match[0])) {
+          isChapterTitle = true;
+          break;
+        }
       }
     }
 
@@ -107,8 +145,32 @@ function parseChapters(text) {
           });
         }
       }
+
+      // 确定章节标题
+      let chapterTitle = matchedTitle || trimmedLine;
+
+      // 如果 matchedTitle 只是 "第X章"（章节关键字后没有内容），检查下一行是否是短文本（章节名）
+      let hasChapterName = false;
+      for (const kw of CHAPTER_KEYWORDS) {
+        if (matchedTitle && matchedTitle.endsWith(kw)) {
+          hasChapterName = true;
+          break;
+        }
+      }
+
+      // 如果 matchedTitle 只是 "第X章" 或 "第X回" 等，检查下一行
+      if (hasChapterName && matchedTitle === trimmedLine) {
+        const nextLine = lines[i + 1]?.trim();
+        // 如果下一行存在且较短（少于15字符），可能是章节名
+        if (nextLine && nextLine.length > 0 && nextLine.length < 15 && !/^第/.test(nextLine)) {
+          chapterTitle = matchedTitle + ' ' + nextLine;
+          // 跳过下一行（它已经被用作章节名了）
+          i++;
+        }
+      }
+
       // 开始新章节
-      currentChapter = matchedTitle || trimmedLine;
+      currentChapter = chapterTitle;
       currentContent = [];
     } else {
       // 内容行

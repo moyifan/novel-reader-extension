@@ -35,14 +35,3 @@ export async function saveSettings(settings) {
   return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings }, resolve));
 }
 
-export async function getBookmarks(bookId) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'GET_BOOKMARKS', bookId }, resolve));
-}
-
-export async function addBookmark(bookmark) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'ADD_BOOKMARK', bookmark }, resolve));
-}
-
-export async function deleteBookmark(bookmarkId) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'DELETE_BOOKMARK', bookmarkId }, resolve));
-}

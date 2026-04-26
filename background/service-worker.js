@@ -2,18 +2,19 @@
 
 const STORAGE_KEYS = {
   BOOKS: 'books',
-  SETTINGS: 'settings',
-  BOOKMARKS: 'bookmarks'
+  SETTINGS: 'settings'
 };
 
 const DEFAULT_SETTINGS = {
   theme: 'eye-care',
-  fontSize: 18,
-  fontFamily: 'Source Han Serif SC',
-  lineHeight: 1.8,
+  fontSize: 20,
+  fontFamily: "'XHei Intel', '微软雅黑', '宋体', '黑体', '楷体', arial",
+  lineHeight: 2,
   pageFlip: 'none',
   autoScroll: false,
-  autoScrollSpeed: 30
+  autoScrollSpeed: 30,
+  chineseConversion: 'disable',
+  customReplaceRules: ''
 };
 
 // 消息处理
@@ -25,10 +26,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     DELETE_BOOK: () => deleteBook(message.bookId).then(() => sendResponse({ success: true })),
     UPDATE_PROGRESS: () => updateReadingProgress(message.bookId, message.chapterIndex, message.scrollPercent).then(() => sendResponse({ success: true })),
     GET_SETTINGS: () => getSettings().then(sendResponse),
-    SAVE_SETTINGS: () => saveSettings(message.settings).then(() => sendResponse({ success: true })),
-    GET_BOOKMARKS: () => getBookmarks(message.bookId).then(sendResponse),
-    ADD_BOOKMARK: () => addBookmark(message.bookmark).then(() => sendResponse({ success: true })),
-    DELETE_BOOKMARK: () => deleteBookmark(message.bookmarkId).then(() => sendResponse({ success: true }))
+    SAVE_SETTINGS: () => saveSettings(message.settings).then(() => sendResponse({ success: true }))
   };
 
   if (handlers[message.type]) {
@@ -112,32 +110,5 @@ async function getSettings() {
 async function saveSettings(settings) {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [STORAGE_KEYS.SETTINGS]: settings }, resolve);
-  });
-}
-
-async function getBookmarks(bookId) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(STORAGE_KEYS.BOOKMARKS, (data) => {
-      resolve((data[STORAGE_KEYS.BOOKMARKS] || []).filter(b => b.bookId === bookId));
-    });
-  });
-}
-
-async function addBookmark(bookmark) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(STORAGE_KEYS.BOOKMARKS, (data) => {
-      const bookmarks = (data[STORAGE_KEYS.BOOKMARKS] || []);
-      bookmarks.push(bookmark);
-      chrome.storage.local.set({ [STORAGE_KEYS.BOOKMARKS]: bookmarks }, resolve);
-    });
-  });
-}
-
-async function deleteBookmark(bookmarkId) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(STORAGE_KEYS.BOOKMARKS, (data) => {
-      const bookmarks = (data[STORAGE_KEYS.BOOKMARKS] || []).filter(b => b.id !== bookmarkId);
-      chrome.storage.local.set({ [STORAGE_KEYS.BOOKMARKS]: bookmarks }, resolve);
-    });
   });
 }

@@ -22,7 +22,6 @@ const readerMain = document.getElementById('readerMain');
 const tocSidebar = document.getElementById('tocSidebar');
 const tocList = document.getElementById('tocList');
 const settingsBtn = document.getElementById('settingsBtn');
-const bookmarkBtn = document.getElementById('bookmarkBtn');
 const closeTocBtn = document.getElementById('closeToc');
 const settingsOverlay = document.getElementById('settingsOverlay');
 const closeSettingsBtn = document.getElementById('closeSettings');
@@ -36,9 +35,6 @@ const lineHeightSlider = document.getElementById('lineHeightSlider');
 const themeBtns = document.querySelectorAll('.theme-btn');
 const autoReadRadios = document.querySelectorAll('input[name="autoRead"]');
 const saveSettingsBtn = document.getElementById('saveSettings');
-const bookmarksOverlay = document.getElementById('bookmarksOverlay');
-const closeBookmarksBtn = document.getElementById('closeBookmarks');
-const bookmarksList = document.getElementById('bookmarksList');
 const toast = document.getElementById('toast');
 
 // 语音控制元素
@@ -71,18 +67,6 @@ function updateProgress(bookId, chapterIndex, scrollPercent) {
   }, resolve));
 }
 
-function getBookmarks(bookId) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'GET_BOOKMARKS', bookId }, resolve));
-}
-
-function addBookmark(bookmark) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'ADD_BOOKMARK', bookmark }, resolve));
-}
-
-function deleteBookmark(bookmarkId) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'DELETE_BOOKMARK', bookmarkId }, resolve));
-}
-
 
 function showToast(message) {
   toast.textContent = message;
@@ -99,8 +83,8 @@ function processContent(text) {
   }
 
   // 繁简转换
-  if (settings.chineseConversion === 'to-tw') {
-    result = convertChinese(result, 'to-tw');
+  if (settings.chineseConversion === 'to-tw' || settings.chineseConversion === 'to-cn') {
+    result = convertChinese(result, settings.chineseConversion);
   }
 
   return result;
@@ -176,7 +160,7 @@ function loadNextChapter() {
 function updateTOCByScroll() {
   const scrollTop = readerMain.scrollTop;
   const clientHeight = readerMain.clientHeight;
-  const viewportMiddle = scrollTop + clientHeight / 2; // 视口中间位置
+  const viewportMiddle = scrollTop + clientHeight / 2;
 
   // 获取所有章节区块
   const chapters = contentDiv.querySelectorAll('.chapter-section');
@@ -184,33 +168,27 @@ function updateTOCByScroll() {
 
   let activeIndex = 0;
 
-  // 找出当前视口中点的章节
-  chapters.forEach((chapter, index) => {
-    const rect = chapter.getBoundingClientRect();
+  // 遍历找到视口中间所在的章节
+  for (let i = 0; i < chapters.length; i++) {
+    const rect = chapters[i].getBoundingClientRect();
     const chapterTop = rect.top + scrollTop - readerMain.offsetTop;
     const chapterBottom = chapterTop + rect.height;
 
-    // 如果视口中间在这个章节的范围内
     if (viewportMiddle >= chapterTop && viewportMiddle < chapterBottom) {
-      activeIndex = index;
+      activeIndex = i;
+      break;
     }
-  });
-
-  // 如果视口中间在最后一个章节之后
-  const lastChapter = chapters[chapters.length - 1];
-  if (lastChapter) {
-    const lastRect = lastChapter.getBoundingClientRect();
-    const lastTop = lastRect.top + scrollTop - readerMain.offsetTop;
-    if (viewportMiddle >= lastTop + lastRect.height) {
-      activeIndex = chapters.length - 1;
+    if (i === chapters.length - 1 && viewportMiddle >= chapterBottom) {
+      activeIndex = i;
     }
   }
 
   // 更新 currentChapterIndex
-  const chapterIndex = parseInt(chapters[activeIndex].dataset.chapterIndex) || activeIndex;
+  const dataIdx = chapters[activeIndex].dataset.chapterIndex;
+  const chapterIndex = dataIdx !== undefined ? parseInt(dataIdx, 10) : activeIndex;
+
   if (chapterIndex !== currentChapterIndex) {
     currentChapterIndex = chapterIndex;
-    // 只更新目录高亮，不重新渲染内容
     renderTOC();
   }
 }
@@ -225,17 +203,14 @@ function scrollToChapter(index) {
   // 记录当前章节
   currentChapterIndex = index;
 
-  // 如果目标章节还未加载，需要先加载之前的章节
-  if (index >= loadedChapterCount) {
-    // 重新渲染所有内容
-    rebuildContent(index);
+  // 检查目标章节是否已加载到 DOM 中
+  const targetChapter = contentDiv.querySelector(`[data-chapter-index="${index}"]`);
+  if (targetChapter) {
+    // 章节已加载，直接滚动到目标位置
+    readerMain.scrollTop = targetChapter.offsetTop - 20;
   } else {
-    // 内容已加载，直接滚动到目标位置
-    const targetChapter = contentDiv.querySelector(`[data-chapter-index="${index}"]`);
-    if (targetChapter) {
-      const rect = targetChapter.getBoundingClientRect();
-      readerMain.scrollTop = rect.top + readerMain.scrollTop - readerMain.offsetTop - 20;
-    }
+    // 章节未加载，重新渲染所有内容
+    rebuildContent(index);
   }
 
   // 更新目录高亮
@@ -408,8 +383,8 @@ function renderBook() {
     ${splitToParagraphs(processedContent)}
   </div>`;
 
-  // 重置已加载章节计数
-  loadedChapterCount = 1;
+  // 重置已加载章节计数（基于当前章节位置，这样才能正确加载后续章节）
+  loadedChapterCount = currentChapterIndex + 1;
 
   // 更新目录高亮
   renderTOC();
@@ -614,9 +589,6 @@ function handleKeydown(e) {
       break;
     case settings.openPreferencesKey || 's':
       settingsOverlay.classList.toggle('hidden');
-      if (!settingsOverlay.classList.contains('hidden')) {
-        bookmarksOverlay.classList.add('hidden');
-      }
       break;
     case settings.hideMenuListKey || 'c':
       toggleTOC();
@@ -629,7 +601,6 @@ function handleKeydown(e) {
 
 function closeAllPanels() {
   settingsOverlay.classList.add('hidden');
-  bookmarksOverlay.classList.add('hidden');
 }
 
 // ========== 目录 ==========
@@ -651,7 +622,6 @@ tocList.addEventListener('click', (e) => {
 // ========== 设置面板 ==========
 settingsBtn.addEventListener('click', () => {
   settingsOverlay.classList.remove('hidden');
-  bookmarksOverlay.classList.add('hidden');
 });
 
 closeSettingsBtn.addEventListener('click', () => settingsOverlay.classList.add('hidden'));
@@ -725,63 +695,7 @@ saveSettingsBtn.addEventListener('click', async () => {
   showToast('设置已保存');
 });
 
-// ========== 书签 ==========
-bookmarkBtn.addEventListener('click', async () => {
-  const bookmark = {
-    id: generateId(),
-    bookId: book.id,
-    chapterIndex: currentChapterIndex,
-    scrollPercent: 0,
-    createdAt: Date.now(),
-    note: book.chapters[currentChapterIndex]?.title || ''
-  };
-  await addBookmark(bookmark);
-  showToast('书签已添加');
-});
-
-bookmarksOverlay.addEventListener('click', (e) => {
-  if (e.target === bookmarksOverlay) {
-    bookmarksOverlay.classList.add('hidden');
-  }
-});
-closeBookmarksBtn.addEventListener('click', () => bookmarksOverlay.classList.add('hidden'));
-
-function renderBookmarks(bookmarks) {
-  if (bookmarks.length === 0) {
-    bookmarksList.innerHTML = '<li style="text-align:center;color:#999;padding:20px;">暂无书签</li>';
-    return;
-  }
-  bookmarksList.innerHTML = bookmarks.map(bm => `
-    <li data-id="${bm.id}" data-index="${bm.chapterIndex}">
-      <span class="bookmark-chapter">第 ${bm.chapterIndex + 1} 章</span>
-      <span class="bookmark-note">${escapeHtml(bm.note)}</span>
-      <span class="bookmark-delete" data-delete-id="${bm.id}">删除</span>
-    </li>
-  `).join('');
-
-  bookmarksList.querySelectorAll('li').forEach(li => {
-    li.addEventListener('click', (e) => {
-      if (e.target.classList.contains('bookmark-delete')) {
-        e.stopPropagation();
-        deleteBookmarkById(e.target.dataset.deleteId);
-        return;
-      }
-      scrollToChapter(parseInt(li.dataset.index));
-      bookmarksOverlay.classList.add('hidden');
-    });
-  });
-}
-
-async function deleteBookmarkById(id) {
-  await deleteBookmark(id);
-  renderBookmarks(await getBookmarks(book.id));
-}
-
-// 双击显示书签列表
-bookmarkBtn.addEventListener('dblclick', async () => {
-  bookmarksOverlay.classList.remove('hidden');
-  renderBookmarks(await getBookmarks(book.id));
-});
+// ========== 设置保存 ==========
 
 // ========== 滚动事件 ==========
 readerMain.addEventListener('scroll', () => {
