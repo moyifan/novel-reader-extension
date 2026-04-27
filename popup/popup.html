@@ -4,6 +4,23 @@
   <meta charset="UTF-8">
   <title>小说阅读器</title>
   <style>
+    :root {
+      --color-primary: #667eea;
+      --color-secondary: #764ba2;
+      --color-bg: #ffffff;
+      --color-bg-card: #f8f9fa;
+      --color-text: #333333;
+      --color-text-secondary: #666666;
+      --color-text-placeholder: #999999;
+      --color-danger: #e74c3c;
+      --color-border: #e0e0e0;
+      --radius-popup: 16px;
+      --radius-card: 12px;
+      --radius-button: 12px;
+      --shadow-card: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-button: 0 4px 15px rgba(102,126,234,0.4);
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -13,64 +30,94 @@
     body {
       width: 320px;
       min-height: 400px;
-      font-family: 'Source Han Serif SC', '宋体', serif;
-      background: #f5f5f5;
-      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
     }
 
     .popup-container {
-      padding: 16px;
+      padding: 0;
     }
 
-    h2 {
+    .popup-header {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+      padding: 20px 16px;
+      border-radius: var(--radius-popup) var(--radius-popup) 0 0;
+    }
+
+    .popup-header h2 {
       font-size: 18px;
-      color: #2c3e50;
-      margin-bottom: 16px;
+      color: #ffffff;
       text-align: center;
+      margin: 0;
     }
 
     .book-list {
       max-height: 280px;
       overflow-y: auto;
       margin-bottom: 12px;
+      padding: 12px 16px;
+    }
+
+    .book-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .book-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .book-list::-webkit-scrollbar-thumb {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+      border-radius: 3px;
     }
 
     .book-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
-      background: #fff;
-      border-radius: 6px;
+      padding: 12px;
+      background: var(--color-bg-card);
+      border-radius: var(--radius-card);
       margin-bottom: 8px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-card);
     }
 
     .book-item:hover {
-      background: #e8f4f8;
+      transform: translateX(4px);
+      background: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
+    }
+
+    .book-info {
+      flex: 1;
+      overflow: hidden;
     }
 
     .book-name {
       font-size: 14px;
-      color: #333;
-      flex: 1;
+      color: var(--color-text);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      margin-bottom: 4px;
     }
 
     .book-meta {
       font-size: 12px;
-      color: #888;
-      margin-left: 8px;
+      color: var(--color-text-secondary);
     }
 
     .book-empty {
       text-align: center;
       padding: 40px 20px;
-      color: #999;
+      color: var(--color-text-placeholder);
       font-size: 14px;
+    }
+
+    .actions {
+      padding: 0 16px 16px;
     }
 
     .btn-group {
@@ -80,46 +127,48 @@
 
     .btn {
       flex: 1;
-      padding: 10px 16px;
+      padding: 12px 16px;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
+      border-radius: var(--radius-button);
+      font-size: 15px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .btn-primary {
-      background: #4CAF50;
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
       color: #fff;
+      box-shadow: var(--shadow-button);
     }
 
     .btn-primary:hover {
-      background: #45a049;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102,126,234,0.5);
     }
 
     .btn-secondary {
-      background: #fff;
-      color: #666;
-      border: 1px solid #ddd;
+      background: var(--color-bg-card);
+      color: var(--color-text-secondary);
+      border: 1px solid var(--color-border);
     }
 
     .btn-secondary:hover {
-      background: #f0f0f0;
+      background: var(--color-border);
     }
 
     .btn-danger {
       background: #fff;
-      color: #dc3545;
-      border: 1px solid #dc3545;
+      color: var(--color-danger);
+      border: 1px solid var(--color-danger);
     }
 
     .btn-danger:hover {
-      background: #dc3545;
+      background: var(--color-danger);
       color: #fff;
-    }
-
-    .actions {
-      margin-top: 12px;
     }
 
     .file-input {
@@ -129,29 +178,37 @@
     .settings-link {
       display: block;
       text-align: center;
-      margin-top: 12px;
+      margin: 12px 16px;
       font-size: 12px;
-      color: #888;
+      color: var(--color-text-secondary);
       text-decoration: none;
       cursor: pointer;
+      transition: color 0.2s ease;
     }
 
     .settings-link:hover {
-      color: #4CAF50;
+      color: var(--color-primary);
     }
 
     .delete-btn {
-      font-size: 12px;
-      color: #dc3545;
-      background: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 14px;
+      color: var(--color-text-placeholder);
+      background: transparent;
       border: none;
       cursor: pointer;
-      padding: 4px 8px;
-      margin-left: 8px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
     .delete-btn:hover {
-      text-decoration: underline;
+      background: rgba(231, 76, 60, 0.1);
+      color: var(--color-danger);
     }
 
     .confirm-dialog {
@@ -172,22 +229,24 @@
     }
 
     .confirm-box {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      max-width: 260px;
+      background: var(--color-bg);
+      padding: 24px;
+      border-radius: var(--radius-card);
+      max-width: 280px;
       text-align: center;
+      box-shadow: var(--shadow-card);
     }
 
     .confirm-box h3 {
       font-size: 16px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
+      color: var(--color-text);
     }
 
     .confirm-box p {
       font-size: 14px;
-      color: #666;
-      margin-bottom: 16px;
+      color: var(--color-text-secondary);
+      margin-bottom: 20px;
     }
 
     .confirm-box .btn-group {
@@ -197,7 +256,9 @@
 </head>
 <body>
   <div class="popup-container">
-    <h2>小说阅读器</h2>
+    <div class="popup-header">
+      <h2>📚 小说阅读器</h2>
+    </div>
 
     <div class="book-list" id="bookList">
       <div class="book-empty">暂无书籍，点击下方按钮上传</div>
