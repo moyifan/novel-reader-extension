@@ -121,7 +121,7 @@ function strtr(str, table) {
     let matchTo = '';
 
     for (const fromLength of fromLengthArray) {
-      const substr = str.substr(i, fromLength);
+      const substr = str.substring(i, i + fromLength);
       if (table[substr]) {
         matchTo = table[substr];
         match = true;

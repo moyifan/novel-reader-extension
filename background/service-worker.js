@@ -1,21 +1,6 @@
 // Service Worker for Novel Reader Chrome Extension
 
-const STORAGE_KEYS = {
-  BOOKS: 'books',
-  SETTINGS: 'settings'
-};
-
-const DEFAULT_SETTINGS = {
-  theme: 'eye-care',
-  fontSize: 20,
-  fontFamily: "'XHei Intel', '微软雅黑', '宋体', '黑体', '楷体', arial",
-  lineHeight: 2,
-  pageFlip: 'none',
-  autoScroll: false,
-  autoScrollSpeed: 30,
-  chineseConversion: 'disable',
-  customReplaceRules: ''
-};
+import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../shared/constants.js';
 
 // 消息处理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

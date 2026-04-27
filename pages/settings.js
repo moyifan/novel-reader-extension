@@ -1,5 +1,6 @@
 // 设置页面逻辑
 import { DEFAULT_SETTINGS, SKINS } from '../shared/constants.js';
+import { getSettings, saveSettings } from '../shared/storage.js';
 
 let settings = null;
 
@@ -31,14 +32,6 @@ const scrollAnimateCheckbox = document.getElementById('scrollAnimate');
 const saveBtn = document.getElementById('saveBtn');
 const resetBtn = document.getElementById('resetBtn');
 const toast = document.getElementById('toast');
-
-function getSettings() {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, resolve));
-}
-
-function saveSettings(settings) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings }, resolve));
-}
 
 function showToast(message) {
   toast.textContent = message;
@@ -220,7 +213,7 @@ function bindEvents() {
   resetBtn.addEventListener('click', () => {
     settings = { ...DEFAULT_SETTINGS };
     applyToUI();
-    showToast('已恢复默认设置');
+    showToast('已恢复默认设置（未保存）');
   });
 }
 

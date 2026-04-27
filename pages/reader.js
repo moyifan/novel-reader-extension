@@ -1,6 +1,7 @@
 // 阅读器页面逻辑
 import { SKINS, convertChinese, applyReplaceRules } from '../shared/constants.js';
 import { escapeHtml } from '../shared/utils.js';
+import { getBook as fetchBook, getSettings, saveSettings, updateProgress } from '../shared/storage.js';
 
 let book = null;
 let settings = null;
@@ -48,24 +49,8 @@ const speechPitchSlider = document.getElementById('speechPitch');
 const speechPitchValue = document.getElementById('speechPitchValue');
 const speechVoiceSelect = document.getElementById('speechVoice');
 
-// Storage API wrappers
-function getBook(bookId) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'GET_BOOK', bookId }, resolve));
-}
-
-function getSettings() {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, resolve));
-}
-
-function saveSettings(settings) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings }, resolve));
-}
-
-function updateProgress(bookId, chapterIndex, scrollPercent) {
-  return new Promise((resolve) => chrome.runtime.sendMessage({
-    type: 'UPDATE_PROGRESS', bookId, chapterIndex, scrollPercent
-  }, resolve));
-}
+// Storage API wrappers - 使用 shared/storage.js
+// getBook, getSettings, saveSettings, updateProgress 已从 shared/storage.js 导入
 
 
 function showToast(message) {
@@ -232,8 +217,10 @@ function rebuildContent(targetIndex) {
       ${splitToParagraphs(processedContent)}
     </div>`;
     contentDiv.insertAdjacentHTML('beforeend', chapterHtml);
-    loadedChapterCount = i + 2;
   }
+
+  // 已加载章节数
+  loadedChapterCount = targetIndex + 1;
 
   // 滚动到目标章节
   const targetChapter = contentDiv.querySelector(`[data-chapter-index="${targetIndex}"]`);
@@ -280,7 +267,7 @@ async function init() {
     return;
   }
 
-  book = await getBook(bookId);
+  book = await fetchBook(bookId);
   if (!book) {
     showToast('书籍不存在');
     return;
