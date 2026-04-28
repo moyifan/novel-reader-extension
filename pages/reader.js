@@ -128,8 +128,9 @@ function loadNextChapter() {
   }
 
   const processedContent = processContent(nextChapter.content);
+  const processedTitle = processContent(nextChapter.title);
   const chapterHtml = `<div class="chapter-section" data-chapter-index="${loadedChapterCount}">
-    <h2 class="chapter-title">${escapeHtml(nextChapter.title)}</h2>
+    <h2 class="chapter-title">${escapeHtml(processedTitle)}</h2>
     ${splitToParagraphs(processedContent)}
   </div>`;
 
@@ -212,8 +213,9 @@ function rebuildContent(targetIndex) {
   for (let i = 0; i <= targetIndex; i++) {
     const chapter = book.chapters[i];
     const processedContent = processContent(chapter.content);
+    const processedTitle = processContent(chapter.title);
     const chapterHtml = `<div class="chapter-section" data-chapter-index="${i}">
-      <h2 class="chapter-title">${escapeHtml(chapter.title)}</h2>
+      <h2 class="chapter-title">${escapeHtml(processedTitle)}</h2>
       ${splitToParagraphs(processedContent)}
     </div>`;
     contentDiv.insertAdjacentHTML('beforeend', chapterHtml);
@@ -363,10 +365,12 @@ function renderBook() {
 
   // 处理内容（繁简转换、拼音字修复）
   const processedContent = processContent(chapter.content);
+  // 处理标题（繁简转换）
+  const processedTitle = processContent(chapter.title);
 
   // 使用章节区块结构（支持滚动加载）
   contentDiv.innerHTML = `<div class="chapter-section" data-chapter-index="${currentChapterIndex}">
-    <h2 class="chapter-title">${escapeHtml(chapter.title)}</h2>
+    <h2 class="chapter-title">${escapeHtml(processedTitle)}</h2>
     ${splitToParagraphs(processedContent)}
   </div>`;
 
@@ -385,7 +389,7 @@ function renderBook() {
 // 渲染目录
 function renderTOC() {
   tocList.innerHTML = book.chapters.map((ch, index) => `
-    <li data-index="${index}" class="${index === currentChapterIndex ? 'active' : ''}">${escapeHtml(ch.title)}</li>
+    <li data-index="${index}" class="${index === currentChapterIndex ? 'active' : ''}">${escapeHtml(processContent(ch.title))}</li>
   `).join('');
 
 }
