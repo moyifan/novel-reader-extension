@@ -176,6 +176,12 @@ function updateTOCByScroll() {
   if (chapterIndex !== currentChapterIndex) {
     currentChapterIndex = chapterIndex;
     renderTOC();
+
+    // 让活动目录项滚动到可视区域
+    const activeItem = tocList.querySelector('li.active');
+    if (activeItem) {
+      activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 }
 
