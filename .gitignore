@@ -1,7 +1,9 @@
 # Claude Code
 .claude/
+.agents/
 
 # temp
 .temp/
 memory/
 CLAUDE.md
+AGENTS.md
