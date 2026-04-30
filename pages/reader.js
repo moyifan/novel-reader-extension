@@ -286,16 +286,21 @@ async function init() {
   currentChapterIndex = book.lastChapterIndex || 0;
 
   renderBook();
-  renderTOC();
+  // renderBook 内部已调用 renderTOC，这里不需要重复调用
   initSpeech();
   initKeyboardShortcuts();
   initSettingInputs();
 
-  // 恢复滚动位置
+  // 恢复滚动位置并让目录同步
   setTimeout(() => {
     if (book.lastScrollPercent) {
       const scrollHeight = readerMain.scrollHeight - readerMain.clientHeight;
       readerMain.scrollTop = (scrollHeight * book.lastScrollPercent) / 100;
+    }
+    // 让目录的当前高亮项滚动到可视区域
+    const activeItem = tocList.querySelector('li.active');
+    if (activeItem) {
+      activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, 100);
 }
