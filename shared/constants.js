@@ -4,6 +4,9 @@ import { ZH_zh2Hans, ZH_zh2TW, ZH_zh2CN, ZH_zh2Hant } from './zhTables.js';
 // 存储键名常量
 export const STORAGE_KEYS = {
   BOOKS: 'books',
+  BOOK_INDEX: 'bookIndex',
+  BOOK_META_PREFIX: 'bookMeta_',
+  BOOK_CONTENT_PREFIX: 'bookContent_',
   SETTINGS: 'settings',
   CURRENT_BOOK_ID: 'currentBookId'
 };
