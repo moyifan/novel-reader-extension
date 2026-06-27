@@ -1,4 +1,4 @@
-// 章节解析模块 - 对齐原脚本兼容策略
+﻿// 章节解析模块 - 对齐原脚本兼容策略
 import { escapeHtml, generateId } from './utils.js';
 
 // 数字: 0-9 半角 + ０-９ 全角 + 中文数字(简繁)
@@ -9,6 +9,10 @@ const CHAPTER_REGEX_LIST = [
 
 const CHAPTER_KEYWORDS = ['章', '回', '卷', '节', '折', '篇', '幕', '集', '話'];
 const PURE_CHAPTER_HEADING_REGEX = /^第?\s*[0-9０-９〇一二两三四五六七八九十○零百千万亿兩]{1,6}\s*[章节回卷节折篇幕集话話]\s*$/;
+
+// 需要剥离的 Unicode 空白字符（.trim() 不覆盖的部分）
+// 包括：em-space (U+2003), en-space (U+2002), 全角空格 (U+3000), 不换行空格 (U+00A0)
+const UNICODE_WHITESPACE_RE = /^[\u00A0\u2000-\u200A\u3000\uFEFF]+|[\u00A0\u2000-\u200A\u3000\uFEFF]+$/g;
 
 function isRealChapterTitle(matchedPart) {
   if (!matchedPart) return true;
@@ -33,6 +37,16 @@ function isRealChapterTitle(matchedPart) {
 }
 
 /**
+ * 宽泛地去除行首尾的空白字符（包括 Unicode 空白如 em-space U+2003）
+ * 专门用于章节标题匹配前的清理
+ * @param {string} line
+ * @returns {string}
+ */
+function wideTrim(line) {
+  return line.replace(/^[\s\u00A0\u2000-\u200A\u3000\uFEFF]+|[\s\u00A0\u2000-\u200A\u3000\uFEFF]+$/g, '');
+}
+
+/**
  * 解析章节
  * @param {string} text - 完整小说文本
  * @returns {Array<{title: string, content: string}>} 章节列表
@@ -45,7 +59,7 @@ export function parseChapters(text) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const trimmedLine = line.trim();
+    const trimmedLine = wideTrim(line);
 
     let isChapterTitle = false;
     let matchedTitle = null;
@@ -68,11 +82,12 @@ export function parseChapters(text) {
         }
       }
 
+      // 章节标题：沿用 trimmedLine 中的无前导空白版本
       let chapterTitle = matchedTitle || trimmedLine;
       if (matchedTitle === trimmedLine && PURE_CHAPTER_HEADING_REGEX.test(matchedTitle)) {
         const nextLine = lines[i + 1]?.trim();
         if (nextLine && nextLine.length > 0 && nextLine.length < 15 && !/^第/.test(nextLine)) {
-          chapterTitle = `${matchedTitle} ${nextLine}`;
+          chapterTitle = matchedTitle + ' ' + nextLine;
           i++;
         }
       }
@@ -80,6 +95,7 @@ export function parseChapters(text) {
       currentChapter = chapterTitle;
       currentContent = [];
     } else if (currentChapter !== null) {
+      // 存入原始行（内含解码后的 Unicode 空白），后续 splitToParagraphs 会用 .trim() 清除
       currentContent.push(line);
     }
   }
@@ -108,7 +124,7 @@ export function splitToParagraphs(content) {
     .split('\n')
     .map(line => line.trim())
     .filter(line => line.length > 0)
-    .map(line => `<p>${escapeHtml(line)}</p>`)
+    .map(line => '<p>' + escapeHtml(line) + '</p>')
     .join('\n');
 }
 
@@ -118,5 +134,5 @@ export function splitToParagraphs(content) {
  * @returns {string} 书籍ID
  */
 export function generateBookId(name) {
-  return `${name}_${generateId()}`;
+  return name + '_' + generateId();
 }

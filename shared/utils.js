@@ -1,4 +1,17 @@
-// 通用工具函数
+﻿// 通用工具函数
+
+/**
+ * 解码 HTML 实体（&emsp; &nbsp; &lt; &gt; &amp; &quot; &#39; 等）
+ * 适用于 .txt 文件中包含 HTML 实体的场景
+ * @param {string} text - 原始文本
+ * @returns {string} 解码后的文本
+ */
+export function decodeHtmlEntities(text) {
+  if (!text) return text;
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+}
 
 /**
  * HTML 转义

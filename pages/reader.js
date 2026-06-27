@@ -1,6 +1,6 @@
-// 阅读器页面逻辑
+﻿// 阅读器页面逻辑
 import { SKINS, convertChinese, applyReplaceRules } from '../shared/constants.js';
-import { escapeHtml } from '../shared/utils.js';
+import { escapeHtml, decodeHtmlEntities } from '../shared/utils.js';
 import { getBook as fetchBook, getSettings, saveSettings, updateProgress } from '../shared/storage.js';
 
 let book = null;
@@ -61,6 +61,9 @@ function showToast(message) {
 
 function processContent(text) {
   let result = text;
+
+  // 解码 HTML 实体（如 &emsp; &nbsp; 等），确保显示正确
+  result = decodeHtmlEntities(result);
 
   // 应用自定义替换规则
   if (settings.customReplaceRules) {
@@ -766,3 +769,6 @@ document.addEventListener('visibilitychange', () => {
 
 // 初始化
 init();
+
+
+

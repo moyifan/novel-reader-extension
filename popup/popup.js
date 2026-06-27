@@ -1,6 +1,6 @@
-// Popup 逻辑
+﻿// Popup 逻辑
 
-import { escapeHtml, generateId } from '../shared/utils.js';
+import { escapeHtml, generateId, decodeHtmlEntities } from '../shared/utils.js';
 import { detectEncoding } from '../shared/encoding.js';
 import { getBooks, saveBook, deleteBook } from '../shared/storage.js';
 import { parseChapters } from '../shared/parser.js';
@@ -80,8 +80,12 @@ fileInput.addEventListener('change', async (e) => {
     const encoding = detectEncoding(arrayBuffer);
     console.log('Detected encoding:', encoding);
 
-    const text = new TextDecoder(encoding).decode(arrayBuffer);
-    console.log('Text decoded, length:', text.length);
+    const rawText = new TextDecoder(encoding).decode(arrayBuffer);
+    console.log('Text decoded, length:', rawText.length);
+
+    // 解码 HTML 实体（如 &emsp; &nbsp; 等），确保章节解析和显示正确
+    const text = decodeHtmlEntities(rawText);
+    console.log('HTML entities decoded, length:', text.length);
 
     const chapters = parseChapters(text);
     console.log('Chapters parsed:', chapters.length);
