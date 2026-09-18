@@ -1,6 +1,6 @@
-﻿// 阅读器页面逻辑
+// 阅读器页面逻辑
 import { SKINS, convertChinese, applyReplaceRules } from '../shared/constants.js';
-import { escapeHtml, decodeHtmlEntities } from '../shared/utils.js';
+import { escapeHtml, decodeHtmlEntities, shouldIgnoreShortcut } from '../shared/utils.js';
 import { getBook as fetchBook, getSettings, saveSettings, updateProgress } from '../shared/storage.js';
 
 let book = null;
@@ -620,34 +620,44 @@ function toggleQuietMode() {
 }
 
 // ========== 快捷键系统 ==========
+// 快捷键表：id 为设置项名，def 为默认键，run 为处理函数
+// 新增快捷键只需在此表加一行，无需改动分发逻辑
+const SHORTCUTS = [
+  { id: 'quietModeKey', def: 'q', run: () => toggleQuietMode() },
+  { id: 'openPreferencesKey', def: 's', run: () => toggleSettingsPanel() },
+  { id: 'hideMenuListKey', def: 'c', run: () => toggleTOC() }
+];
+
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', handleKeydown);
 }
 
+// 读取设置中的按键并归一化（兼容历史数据里的大写值）
+function getShortcutKey(shortcut) {
+  return String(settings[shortcut.id] || shortcut.def).toLowerCase();
+}
+
 function handleKeydown(e) {
-  // 如果在输入框中，不处理快捷键
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  // 输入框/修饰键组合（Ctrl+C 复制等）/输入法组字/长按连发，一律不处理快捷键
+  if (shouldIgnoreShortcut(e)) return;
 
   const key = e.key.toLowerCase();
 
-  switch (key) {
-    case settings.quietModeKey || 'q':
-      toggleQuietMode();
-      break;
-    case settings.openPreferencesKey || 's':
-      settingsOverlay.classList.toggle('hidden');
-      break;
-    case settings.hideMenuListKey || 'c':
-      toggleTOC();
-      break;
-    case 'escape':
-      closeAllPanels();
-      break;
+  // 设置面板是模态层：打开时只响应 Esc，避免面板内操作被快捷键打断
+  if (!settingsOverlay.classList.contains('hidden') && key !== 'escape') return;
+
+  const matched = SHORTCUTS.find((shortcut) => getShortcutKey(shortcut) === key);
+  if (matched) {
+    matched.run();
+    return;
   }
+
+  if (key === 'escape') closeAllPanels();
 }
 
 function closeAllPanels() {
   settingsOverlay.classList.add('hidden');
+  tocSidebar.classList.add('hidden');
 }
 
 // ========== 目录 ==========
@@ -656,6 +666,14 @@ function toggleTOC(show) {
     tocSidebar.classList.toggle('hidden');
   } else {
     tocSidebar.classList.toggle('hidden', !show);
+  }
+}
+
+function toggleSettingsPanel(show) {
+  if (show === undefined) {
+    settingsOverlay.classList.toggle('hidden');
+  } else {
+    settingsOverlay.classList.toggle('hidden', !show);
   }
 }
 
@@ -668,14 +686,14 @@ tocList.addEventListener('click', (e) => {
 
 // ========== 设置面板 ==========
 settingsBtn.addEventListener('click', () => {
-  settingsOverlay.classList.remove('hidden');
+  toggleSettingsPanel(true);
 });
 
-closeSettingsBtn.addEventListener('click', () => settingsOverlay.classList.add('hidden'));
+closeSettingsBtn.addEventListener('click', () => toggleSettingsPanel(false));
 // 点击遮罩关闭设置面板
 settingsOverlay.addEventListener('click', (e) => {
   if (e.target === settingsOverlay) {
-    settingsOverlay.classList.add('hidden');
+    toggleSettingsPanel(false);
   }
 });
 
