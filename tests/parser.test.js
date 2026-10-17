@@ -102,6 +102,61 @@ run('前导 em-space 不干扰章节识别', () => {
   assert.equal(chapters[0].title.indexOf('\u2003'), -1, 'chapter title should have no em-space');
 });
 
+run('带 emoji 装饰前缀的标题能识别', () => {
+  const text = [
+    '第274章 灵族的父神？',
+    '内容A',
+    '🍎 第275章 基石序列的新标准',
+    '内容B',
+    '🍎 第276章 帝国暗面的新格局',
+    '内容C'
+  ].join('\n');
+
+  const chapters = parseChapters(text);
+  assert.equal(chapters.length, 3);
+  // 前缀被剥离，标题干净
+  assert.equal(chapters[1].title, '第275章 基石序列的新标准');
+  assert.equal(chapters[2].title, '第276章 帝国暗面的新格局');
+  // 第275章的内容归属正确，不会并进第274章
+  assert.ok(chapters[0].content.includes('内容A'));
+  assert.ok(!chapters[0].content.includes('基石序列的新标准'));
+  assert.ok(chapters[1].content.includes('内容B'));
+});
+
+run('章后无空格的阿拉伯数字标题能识别', () => {
+  const text = [
+    '第99章 倒霉的星球',
+    '内容A',
+    '第100章借纳垢的刀，收奸奇的菜',
+    '内容B',
+    '第101章 两万死士硬顶',
+    '内容C'
+  ].join('\n');
+
+  const chapters = parseChapters(text);
+  assert.equal(chapters.length, 3);
+  assert.equal(chapters[1].title, '第100章借纳垢的刀，收奸奇的菜');
+  assert.ok(chapters[1].content.includes('内容B'));
+});
+
+run('正文里的回/节/章干扰词不会被当成标题', () => {
+  const text = [
+    '第200章 群贤汇聚',
+    '第七回廊的低语收藏者。',
+    '第三节太重。你们人类的舌头总像被钢钉钉住。',
+    '第3回合结束，战斗继续。',
+    '第201章 熊卫升级',
+    '内容C'
+  ].join('\n');
+
+  const chapters = parseChapters(text);
+  assert.equal(chapters.length, 2);
+  assert.equal(chapters[0].title, '第200章 群贤汇聚');
+  assert.equal(chapters[1].title, '第201章 熊卫升级');
+  assert.ok(chapters[0].content.includes('第七回廊'));
+  assert.ok(chapters[0].content.includes('第3回合结束'));
+});
+
 run('前导全角空格不干扰章节识别', () => {
   const text = [
     '\u3000第5章 新的开始',
