@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#D8E2C8">
   <title>小说阅读器</title>
   <link rel="stylesheet" href="reader.css">
 </head>
-<body data-theme="sepia">
+<body>
   <!-- 主布局 -->
   <div class="reader-layout">
     <!-- 左侧目录栏 -->
     <aside class="toc-sidebar" id="tocSidebar">
       <div class="toc-header">
-        <h3 id="bookTitle">加载中...</h3>
-        <button class="close-toc" id="closeToc">×</button>
+        <h1 id="bookTitle">加载中...</h1>
+        <button class="close-toc" id="closeToc" aria-label="关闭目录">×</button>
       </div>
       <div class="toc-meta hidden" id="tocMeta">
         <div class="toc-meta-line hidden" id="tocMetaLine"></div>
@@ -41,9 +42,9 @@
 
   <!-- 浮动操作按钮 -->
   <div class="reader-actions">
-    <button class="action-btn hidden" id="notesBtn" title="本章段评">💬</button>
-    <button class="action-btn" id="settingsBtn" title="设置 (s)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <button class="action-btn hidden" id="notesBtn" title="本章段评" aria-label="本章段评">💬</button>
+    <button class="action-btn" id="settingsBtn" title="设置 (s)" aria-label="阅读设置">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <circle cx="12" cy="12" r="3"></circle>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
       </svg>
@@ -51,24 +52,15 @@
       </div>
 
   <!-- 设置面板 (整合朗读功能) -->
-  <div class="settings-overlay hidden" id="settingsOverlay">
+  <div class="settings-overlay hidden" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="阅读设置">
     <div class="settings-panel">
       <div class="settings-header">
-        <h3>阅读设置</h3>
-        <button class="close-settings" id="closeSettings">×</button>
+        <h2>阅读设置</h2>
+        <button class="close-settings" id="closeSettings" aria-label="关闭设置">×</button>
       </div>
 
       <div class="settings-section">
-        <h4>外观</h4>
-        <div class="settings-group">
-          <label>背景颜色</label>
-          <div class="theme-buttons">
-            <button class="theme-btn active" data-theme="sepia" title="护眼" style="background:#F4ECD8;"></button>
-            <button class="theme-btn" data-theme="light" title="白天" style="background:#fff;"></button>
-            <button class="theme-btn" data-theme="eye-care" title="深色" style="background:#C8E6C9;"></button>
-            <button class="theme-btn" data-theme="dark" title="夜间" style="background:#1A1A1A;"></button>
-          </div>
-        </div>
+        <h3>外观</h3>
         <div class="settings-group">
           <label>字体</label>
           <input type="text" id="fontFamily" placeholder="如：XHei Intel、Source Han Serif SC" value="">
@@ -88,7 +80,7 @@
       </div>
 
       <div class="settings-section">
-        <h4>朗读</h4>
+        <h3>朗读</h3>
         <div class="speech-controls">
           <button class="speech-btn" id="speechStart">开始朗读</button>
           <button class="speech-btn" id="speechPause" style="display:none;">暂停</button>
@@ -113,7 +105,7 @@
       </div>
 
       <div class="settings-section">
-        <h4>自动滚动</h4>
+        <h3>自动滚动</h3>
         <div class="settings-group">
           <div class="auto-read-options">
             <label><input type="radio" name="autoRead" value="off" checked> 关闭</label>
@@ -124,7 +116,7 @@
       </div>
 
       <div class="settings-section">
-        <h4>自定义样式</h4>
+        <h3>自定义样式</h3>
         <div class="settings-group">
           <textarea id="extraCss" rows="3" placeholder="body { -webkit-text-stroke: 0.5px; }"></textarea>
         </div>
@@ -137,16 +129,16 @@
 
   
   <!-- Toast 提示 -->
-  <div class="toast hidden" id="toast">提示信息</div>
+  <div class="toast hidden" id="toast" role="status" aria-live="polite">提示信息</div>
 
   <!-- 段评抽屉 -->
-  <aside class="notes-drawer hidden" id="notesDrawer">
+  <aside class="notes-drawer hidden" id="notesDrawer" role="dialog" aria-modal="true" aria-label="段评">
     <div class="notes-drawer-header">
       <div class="notes-drawer-heading">
         <div class="notes-drawer-title" id="notesDrawerTitle">段评</div>
         <div class="notes-drawer-sub" id="notesDrawerSub"></div>
       </div>
-      <button class="close-notes" id="closeNotes" title="关闭 (Esc)">×</button>
+      <button class="close-notes" id="closeNotes" title="关闭 (Esc)" aria-label="关闭段评">×</button>
     </div>
     <div class="notes-drawer-body" id="notesDrawerBody"></div>
   </aside>

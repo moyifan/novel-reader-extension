@@ -14,7 +14,6 @@ export const STORAGE_KEYS = {
 
 // 默认设置
 export const DEFAULT_SETTINGS = {
-  theme: 'eye-care',
   fontSize: 20,
   fontFamily: "'XHei Intel', '微软雅黑', '宋体', '黑体', '楷体', arial",
   lineHeight: 2,
@@ -24,38 +23,6 @@ export const DEFAULT_SETTINGS = {
   chineseConversion: 'disable',
   customReplaceRules: '',
   notesEnabled: true
-};
-
-// 主题配置
-export const THEMES = {
-  light: {
-    name: '白天',
-    background: '#FFFFFF',
-    text: '#333333',
-    buttonBg: '#F8F9FA',
-    accent: '#007BFF'
-  },
-  sepia: {
-    name: '护眼',
-    background: '#F4ECD8',
-    text: '#5B4636',
-    buttonBg: '#EDE4D3',
-    accent: '#8B4513'
-  },
-  dark: {
-    name: '夜间',
-    background: '#1A1A1A',
-    text: '#E0E0E0',
-    buttonBg: '#2D2D2D',
-    accent: '#6DB3F2'
-  },
-  'eye-care': {
-    name: '深色',
-    background: '#C8E6C9',
-    text: '#2E4A2E',
-    buttonBg: '#A5D6A7',
-    accent: '#4CAF50'
-  }
 };
 
 // 章节正则 - 来自原脚本
@@ -79,25 +46,6 @@ export const PAGE_FLIP_OPTIONS = [
   { value: 'click', label: '点击' },
   { value: 'scroll', label: '滚动' }
 ];
-
-// 皮肤定义 - 来自 userscript 8.0.5
-export const SKINS = {
-  "缺省皮肤": "",
-  "暗色皮肤": "body { color: #666; background-color: rgba(0,0,0,.1); } .title { color: #222; }",
-  "白底黑字": "body { color: black; background-color: white;} .title { font-weight: bold; border-bottom: 0.1em solid; margin-bottom: 1.857em; padding-bottom: 0.857em;}",
-  "夜间模式": "body { color: #939392; background: #2d2d2d; } .reader-actions { filter: invert(90%); } .chapter-content img { background-color: #c0c0c0; } .chapter-title { color: #939392; }",
-  "夜间模式1": "body { color: #679; background-color: black; } .reader-actions { filter: invert(90%); } .chapter-title { color: #3399FF; background-color: #121212; }",
-  "夜间模式2": "body { color: #AAAAAA; background-color: #121212; } .reader-actions { filter: invert(90%); } .chapter-content img { background-color: #c0c0c0; } .chapter-title { color: #3399FF; background-color: #121212; } a { color: #E0BC2D; } a:link { color: #E0BC2D; } a:visited { color:#AAAAAA; } a:hover { color: #3399FF; } a:active { color: #423F3F; }",
-  "夜间模式（多看）": "body { color: #4A4A4A; background: #101819; } .reader-actions { filter: invert(90%); } .chapter-content img { background-color: #c0c0c0; }",
-  "橙色背景": "body { color: #24272c; background-color: #FEF0E1; }",
-  "绿色背景": "body { color: black; background-color: #d8e2c8; }",
-  "绿色背景2": "body { color: black; background-color: #CCE8CF; }",
-  "蓝色背景": "body { color: black; background-color: #E7F4FE; }",
-  "棕黄背景": "body { color: black; background-color: #C2A886; }",
-  "经典皮肤": "body { color: black; background-color: #EAEAEE; } .chapter-title { background-color: #f0f0f0; }",
-  "绿色亮字": "body, .toc-sidebar, .reader-header { color: rgb(187,215,188); background-color: rgb(18,44,20); } .reader-actions { filter: invert(90%); }",
-  "图书双层": "body { color: #black; background: #ECE8D7; } .reader-main { background: #E8E6DA; padding-left: 4rem; padding-right: 4rem; border: 1px solid rgba(211,211,211,0.25); }"
-};
 
 // 转换表 - 来自原脚本
 const tw2cnTable = { ...ZH_zh2CN, ...ZH_zh2Hans };  // 繁体转简体

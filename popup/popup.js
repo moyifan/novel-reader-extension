@@ -28,6 +28,10 @@ async function loadBooks() {
 }
 
 // 渲染书籍列表
+function escapeAttr(value) {
+  return escapeHtml(String(value ?? '')).replace(/"/g, '&quot;');
+}
+
 function renderBookList() {
   if (books.length === 0) {
     bookList.innerHTML = '<div class="book-empty">暂无书籍，点击下方按钮上传</div>';
@@ -38,21 +42,17 @@ function renderBookList() {
     const subline = [book.author, book.wordCount, book.bookStatus].filter(Boolean).join(' · ');
     return `
     <div class="book-item" data-book-id="${book.id}">
-      <div class="book-info">
-        <div class="book-name">${escapeHtml(book.name)}</div>
-        ${subline ? `<div class="book-sub">${escapeHtml(subline)}</div>` : ''}
-      </div>
+      <button class="book-open" data-book-id="${book.id}" aria-label="打开 ${escapeAttr(book.name)}">
+        <span class="book-name">${escapeHtml(book.name)}</span>
+        ${subline ? `<span class="book-sub">${escapeHtml(subline)}</span>` : ''}
+      </button>
       <span class="book-meta">${(book.lastChapterIndex || 0) + 1}/${book.totalChapters || '?'}</span>
-      <button class="delete-btn" data-delete-id="${book.id}">删除</button>
+      <button class="delete-btn" data-delete-id="${book.id}" aria-label="删除 ${escapeAttr(book.name)}">删除</button>
     </div>`;
   }).join('');
 
-  bookList.querySelectorAll('.book-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('delete-btn')) {
-        openReader(item.dataset.bookId);
-      }
-    });
+  bookList.querySelectorAll('.book-open').forEach(btn => {
+    btn.addEventListener('click', () => openReader(btn.dataset.bookId));
   });
 
   bookList.querySelectorAll('.delete-btn').forEach(btn => {

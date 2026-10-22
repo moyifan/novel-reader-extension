@@ -1,5 +1,5 @@
 // 阅读器页面逻辑
-import { SKINS, convertChinese, applyReplaceRules } from '../shared/constants.js';
+import { convertChinese, applyReplaceRules } from '../shared/constants.js';
 import { escapeHtml, decodeHtmlEntities, shouldIgnoreShortcut } from '../shared/utils.js';
 import { getBook as fetchBook, getSettings, saveSettings, updateProgress, getBookNotes } from '../shared/storage.js';
 
@@ -38,7 +38,6 @@ const fontFamilyInput = document.getElementById('fontFamily');
 const extraCssInput = document.getElementById('extraCss');
 const lineHeightValue = document.getElementById('lineHeightValue');
 const lineHeightSlider = document.getElementById('lineHeightSlider');
-const themeBtns = document.querySelectorAll('.theme-btn');
 const autoReadRadios = document.querySelectorAll('input[name="autoRead"]');
 const saveSettingsBtn = document.getElementById('saveSettings');
 const toast = document.getElementById('toast');
@@ -121,7 +120,24 @@ function notesVisible() {
 }
 
 function notePillHtml(chapterIndex, para, count) {
-  return `<button class="note-pill" data-chapter="${chapterIndex}" data-para="${para}" title="${count} 条段评">💬 ${count}</button>`;
+  return `<button class="note-pill" data-chapter="${chapterIndex}" data-para="${para}" title="${count} 条段评" aria-label="${count} 条段评">💬 ${count}</button>`;
+}
+
+// 把段落末尾几个字和气泡包在一起，避免气泡单独掉到下一行
+function wrapParagraphTail(paragraph) {
+  const last = paragraph.lastChild;
+  if (!last || last.nodeType !== Node.TEXT_NODE) return null;
+
+  const text = last.textContent;
+  if (!text) return null;
+
+  const take = Math.min(4, text.length);
+  const tail = document.createElement('span');
+  tail.className = 'note-tail';
+  tail.textContent = text.slice(-take);
+  last.textContent = text.slice(0, -take);
+  paragraph.appendChild(tail);
+  return tail;
 }
 
 function applyNoteBadges(chapterIndex) {
@@ -131,6 +147,9 @@ function applyNoteBadges(chapterIndex) {
   // 先清掉旧角标/整段可点标记，再按当前数据重建（避免重复注入）
   section.querySelectorAll('p.has-notes').forEach(el => el.classList.remove('has-notes'));
   section.querySelectorAll('.note-pill, .chapter-end-notes').forEach(el => el.remove());
+  section.querySelectorAll('.note-tail').forEach((el) => {
+    el.replaceWith(document.createTextNode(el.textContent));
+  });
   if (!notesVisible()) return;
 
   const notes = notesCache.get(chapterIndex);
@@ -140,7 +159,8 @@ function applyNoteBadges(chapterIndex) {
     const paragraph = section.querySelector(`p[data-para="${span.para}"]`);
     if (!paragraph) continue;
     paragraph.classList.add('has-notes');
-    paragraph.insertAdjacentHTML('beforeend', notePillHtml(chapterIndex, span.para, span.comments.length));
+    const tail = wrapParagraphTail(paragraph);
+    (tail || paragraph).insertAdjacentHTML('beforeend', notePillHtml(chapterIndex, span.para, span.comments.length));
   }
 
   if (notes.orphans && notes.orphans.length > 0) {
@@ -228,6 +248,9 @@ function noteItemElement(comment) {
       const img = document.createElement('img');
       img.className = 'note-image';
       img.loading = 'lazy';
+      img.decoding = 'async';
+      img.width = 72;
+      img.height = 72;
       img.alt = '段评图片';
       img.src = url;
       // 外链签名会过期，加载失败直接移除，避免破图
@@ -249,61 +272,7 @@ function noteQuoteElement(text) {
   return quote;
 }
 
-// 正文在“整个窗口”内居中，目录栏不参与居中计算：
-// 目录展开时内容按窗口中心落位，避免目录和正文之间空出一大条。
-function updateContentAlignment() {
-  const wrapper = contentDiv.closest('.reader-content-wrapper');
-  if (!wrapper) return;
-
-  const main = wrapper.parentElement;
-  const viewport = document.documentElement.clientWidth || window.innerWidth;
-  const tocWidth = tocSidebar.classList.contains('hidden') ? 0 : tocSidebar.offsetWidth;
-  const paddingLeft = parseFloat(window.getComputedStyle(main).paddingLeft) || 0;
-  const wrapWidth = wrapper.offsetWidth;
-
-  const centeredLeft = (viewport - wrapWidth) / 2;
-  const marginLeft = Math.max(0, Math.round(centeredLeft - tocWidth - paddingLeft));
-
-  wrapper.style.marginLeft = `${marginLeft}px`;
-  wrapper.style.marginRight = 'auto';
-
-  positionNotesDrawer();
-}
-
-// 抽屉贴正文列右边缘，而不是贴窗口右边；窄屏放不下时回退贴右
-const NOTES_DRAWER_WIDTH = 380;
-const NOTES_DRAWER_GAP = 16;
-
-function positionNotesDrawer() {
-  if (!notesDrawer || notesDrawer.classList.contains('hidden')) return;
-
-  const wrapper = document.querySelector('.reader-content-wrapper');
-  if (!wrapper) return;
-
-  const rect = wrapper.getBoundingClientRect();
-  const wrapperStyle = window.getComputedStyle(wrapper);
-  const paddingRight = parseFloat(wrapperStyle.paddingRight) || 0;
-  const textRight = rect.right - paddingRight;
-  const viewport = document.documentElement.clientWidth || window.innerWidth;
-
-  const left = Math.round(textRight + NOTES_DRAWER_GAP);
-  const width = Math.min(NOTES_DRAWER_WIDTH, viewport - left - NOTES_DRAWER_GAP);
-
-  if (width >= 280) {
-    notesDrawer.classList.add('anchored');
-    notesDrawer.style.left = `${left}px`;
-    notesDrawer.style.right = 'auto';
-    notesDrawer.style.width = `${Math.round(width)}px`;
-  } else {
-    // 空间不足：回退为原来的贴窗口右侧（覆盖式）
-    notesDrawer.classList.remove('anchored');
-    notesDrawer.style.left = '';
-    notesDrawer.style.right = '';
-    notesDrawer.style.width = '';
-  }
-}
-
-// 抽屉配色跟随正文区域（body/皮肤可能只改 .reader-main，如「图书双层」）
+// 抽屉配色跟随正文区域（body 或 .reader-main 的实际底色）
 function syncDrawerPalette() {
   const main = document.querySelector('.reader-main');
   if (!main) return;
@@ -321,6 +290,7 @@ function syncDrawerPalette() {
 // 抽屉当前展示的内容，用于「再次点击同一入口关闭」
 // kind: 'span'（单段） / 'orphans'（章末段评） / 'chapter'（本章段评列表）
 let notesDrawerContext = null;
+let lastFocusedBeforeNotes = null;
 
 function isNotesDrawerOpen(kind, chapterIndex, para = null) {
   if (!notesDrawerContext || notesDrawer.classList.contains('hidden')) return false;
@@ -330,17 +300,26 @@ function isNotesDrawerOpen(kind, chapterIndex, para = null) {
 }
 
 function openNotesDrawer() {
+  const wasHidden = notesDrawer.classList.contains('hidden');
+  if (wasHidden) lastFocusedBeforeNotes = document.activeElement;
+
   notesDrawer.classList.remove('hidden');
   document.body.classList.add('notes-open');
   syncDrawerPalette();
-  positionNotesDrawer();
+
+  if (wasHidden) closeNotesBtn.focus();
 }
 
 function closeNotesDrawer() {
+  const focusInside = notesDrawer.contains(document.activeElement);
   notesDrawer.classList.add('hidden');
   document.body.classList.remove('notes-open');
   notesDrawerContext = null;
   clearActiveParagraph();
+
+  if (focusInside && lastFocusedBeforeNotes && lastFocusedBeforeNotes.isConnected) {
+    lastFocusedBeforeNotes.focus();
+  }
 }
 
 function clearActiveParagraph() {
@@ -734,18 +713,6 @@ function clearBufferContent() {
   contentDiv.querySelectorAll('.chapter-buffer').forEach(el => el.remove());
 }
 
-// 应用皮肤
-function applySkin(skinName) {
-  const skinCss = SKINS[skinName] || '';
-  let skinStyle = document.getElementById('skin-style');
-  if (!skinStyle) {
-    skinStyle = document.createElement('style');
-    skinStyle.id = 'skin-style';
-    document.head.appendChild(skinStyle);
-  }
-  skinStyle.textContent = skinCss;
-}
-
 // 应用额外自定义样式
 function applyExtraCss(extraCss) {
   let extraStyle = document.getElementById('extra-style');
@@ -799,12 +766,6 @@ async function init() {
 
 // 应用设置到页面
 function applySettings() {
-  // 应用主题
-  document.body.dataset.theme = settings.theme;
-
-  // 应用皮肤
-  applySkin(settings.skinName);
-
   // 应用字体和排版
   document.documentElement.style.setProperty('--font-size', settings.fontSize + 'px');
   document.documentElement.style.setProperty('--line-height', settings.lineHeight);
@@ -825,11 +786,6 @@ function applySettings() {
   if (lineHeightValue) lineHeightValue.textContent = settings.lineHeight;
   if (lineHeightSlider) lineHeightSlider.value = settings.lineHeight;
 
-  // 主题按钮高亮
-  themeBtns.forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === settings.theme);
-  });
-
   // 自动滚动设置
   autoReadRadios.forEach(radio => {
     const value = settings.autoScroll ? String(settings.autoScrollSpeed || '30') : 'off';
@@ -848,11 +804,9 @@ function applySettings() {
   }
 
   // 段评角标开关
-  updateContentAlignment();
   updateNotesButtonVisibility();
   refreshRenderedNotes();
   syncDrawerPalette();
-  positionNotesDrawer();
 }
 
 // 初始化设置面板的输入框
@@ -893,10 +847,20 @@ function renderBook() {
 
 // 渲染目录
 function renderTOC() {
-  tocList.innerHTML = book.chapters.map((ch, index) => `
-    <li data-index="${index}" class="${index === currentChapterIndex ? 'active' : ''}">${escapeHtml(processContent(ch.title))}</li>
-  `).join('');
+  if (tocList.children.length !== book.chapters.length) {
+    tocList.innerHTML = book.chapters.map((ch, index) => `
+      <li role="button" tabindex="-1" data-index="${index}" aria-current="false">${escapeHtml(processContent(ch.title))}</li>
+    `).join('');
+  }
 
+  // 只更新状态，避免每次切章重建 801 个节点
+  for (let i = 0; i < tocList.children.length; i++) {
+    const li = tocList.children[i];
+    const active = i === currentChapterIndex;
+    li.classList.toggle('active', active);
+    li.tabIndex = active ? 0 : -1;
+    li.setAttribute('aria-current', active ? 'true' : 'false');
+  }
 }
 
 // 保存阅读进度
@@ -1146,10 +1110,6 @@ function toggleTOC(show) {
   } else {
     tocSidebar.classList.toggle('hidden', !show);
   }
-
-  // 目录开合会改变正文列位置，抽屉跟着重新贴边（等过渡结束再算一次）
-  updateContentAlignment();
-  setTimeout(updateContentAlignment, 320);
 }
 
 function toggleSettingsPanel(show) {
@@ -1162,15 +1122,58 @@ function toggleSettingsPanel(show) {
 
 closeTocBtn.addEventListener('click', () => toggleTOC(false));
 tocIntroToggle.addEventListener('click', toggleIntro);
-// 目录点击事件 - 使用事件委托
+// 目录点击 / 键盘导航
 tocList.addEventListener('click', (e) => {
   const li = e.target.closest('li');
-  if (li) scrollToChapter(parseInt(li.dataset.index));
+  if (li) scrollToChapter(parseInt(li.dataset.index, 10));
+});
+
+tocList.addEventListener('keydown', (e) => {
+  const li = e.target.closest('li');
+  if (!li) return;
+
+  const items = [...tocList.children];
+  const index = items.indexOf(li);
+
+  const focusAt = (nextIndex) => {
+    const target = items[Math.max(0, Math.min(items.length - 1, nextIndex))];
+    if (!target) return;
+    items.forEach((item) => { item.tabIndex = item === target ? 0 : -1; });
+    target.focus();
+  };
+
+  if (e.key === 'ArrowDown') { e.preventDefault(); focusAt(index + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); focusAt(index - 1); }
+  else if (e.key === 'Home') { e.preventDefault(); focusAt(0); }
+  else if (e.key === 'End') { e.preventDefault(); focusAt(items.length - 1); }
+  else if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    scrollToChapter(index);
+    focusAt(index);
+  }
 });
 
 // ========== 段评交互 ==========
 notesBtn.addEventListener('click', openChapterNotesDrawer);
 closeNotesBtn.addEventListener('click', closeNotesDrawer);
+
+// 抽屉内 Tab 焦点循环
+notesDrawer.addEventListener('keydown', (event) => {
+  if (event.key !== 'Tab') return;
+  const focusables = [...notesDrawer.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => el.offsetParent !== null);
+  if (focusables.length === 0) return;
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});
 
 // 段尾角标 / 有段评的段落点击（事件委托，章节区块滚动重建后依然有效）
 contentDiv.addEventListener('click', (event) => {
@@ -1236,13 +1239,6 @@ lineHeightSlider.addEventListener('input', () => {
   lineHeightValue.textContent = settings.lineHeight;
 });
 
-themeBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    settings.theme = btn.dataset.theme;
-    applySettings();
-  });
-});
-
 // 字体输入框实时更新
 fontFamilyInput.addEventListener('input', () => {
   settings.fontFamily = fontFamilyInput.value;
@@ -1305,8 +1301,10 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// 窗口尺寸变化时，正文重新居中、抽屉继续贴着正文列
-window.addEventListener('resize', updateContentAlignment);
+// 窗口尺寸变化时重新贴右
+window.addEventListener('resize', () => {
+  syncDrawerPalette();
+});
 
 // 初始化
 init();

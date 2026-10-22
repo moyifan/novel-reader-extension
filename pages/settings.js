@@ -1,5 +1,5 @@
 // 设置页面逻辑
-import { DEFAULT_SETTINGS, SKINS } from '../shared/constants.js';
+import { DEFAULT_SETTINGS } from '../shared/constants.js';
 import { getSettings, saveSettings } from '../shared/storage.js';
 
 let settings = null;
@@ -14,7 +14,6 @@ const paragraphHeightSlider = document.getElementById('paragraphHeight');
 const contentWidthInput = document.getElementById('contentWidth');
 const fontFamilySelect = document.getElementById('fontFamily');
 const extraCssTextarea = document.getElementById('extraCss');
-const skinGrid = document.getElementById('skinGrid');
 const chineseConversionRadios = document.querySelectorAll('input[name="chineseConversion"]');
 const customReplaceRulesTextarea = document.getElementById('customReplaceRules');
 const quietModeKeyInput = document.getElementById('quietModeKey');
@@ -60,11 +59,6 @@ function applyToUI() {
   contentWidthInput.value = settings.contentWidth || '800px';
   fontFamilySelect.value = settings.fontFamily || 'Source Han Serif SC';
   extraCssTextarea.value = settings.extraCss || '';
-
-  // 皮肤
-  skinGrid.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.skin === (settings.skinName || '缺省皮肤'));
-  });
 
   // 繁简转换
   chineseConversionRadios.forEach(radio => {
@@ -138,15 +132,6 @@ function bindEvents() {
 
   extraCssTextarea.addEventListener('change', () => {
     settings.extraCss = extraCssTextarea.value;
-  });
-
-  // 皮肤选择
-  skinGrid.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      settings.skinName = btn.dataset.skin;
-      skinGrid.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
   });
 
   // 繁简转换
