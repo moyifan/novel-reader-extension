@@ -15,6 +15,15 @@
         <h3 id="bookTitle">加载中...</h3>
         <button class="close-toc" id="closeToc">×</button>
       </div>
+      <div class="toc-meta hidden" id="tocMeta">
+        <div class="toc-meta-line hidden" id="tocMetaLine"></div>
+        <div class="toc-intro hidden" id="tocIntro">
+          <button class="toc-intro-toggle" id="tocIntroToggle" aria-expanded="false">
+            <span>简介</span><span class="toc-intro-arrow" id="tocIntroArrow">▾</span>
+          </button>
+          <div class="toc-intro-body hidden" id="tocIntroBody"></div>
+        </div>
+      </div>
       <ul class="toc-list" id="tocList">
         <!-- 章节列表 -->
       </ul>
@@ -32,6 +41,7 @@
 
   <!-- 浮动操作按钮 -->
   <div class="reader-actions">
+    <button class="action-btn hidden" id="notesBtn" title="本章段评">💬</button>
     <button class="action-btn" id="settingsBtn" title="设置 (s)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="3"></circle>
@@ -128,6 +138,18 @@
   
   <!-- Toast 提示 -->
   <div class="toast hidden" id="toast">提示信息</div>
+
+  <!-- 段评抽屉 -->
+  <aside class="notes-drawer hidden" id="notesDrawer">
+    <div class="notes-drawer-header">
+      <div class="notes-drawer-heading">
+        <div class="notes-drawer-title" id="notesDrawerTitle">段评</div>
+        <div class="notes-drawer-sub" id="notesDrawerSub"></div>
+      </div>
+      <button class="close-notes" id="closeNotes" title="关闭 (Esc)">×</button>
+    </div>
+    <div class="notes-drawer-body" id="notesDrawerBody"></div>
+  </aside>
 
   <script src="../shared/utils.js" type="module"></script>
   <script src="../shared/zhTables.js" type="module"></script>

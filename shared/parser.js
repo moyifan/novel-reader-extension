@@ -1,5 +1,14 @@
 // 章节解析模块 - 对齐原脚本兼容策略
 import { escapeHtml, generateId } from './utils.js';
+import {
+  detectFanqie,
+  parseFanqieMeta,
+  parseFanqieAppendix,
+  stripFanqieMarkers,
+  FANQIE_APPENDIX_RE,
+  FANQIE_EXPORT_HEAD_RE,
+  FANQIE_TIME_RE
+} from './fanqie.js';
 
 // 标题行允许的装饰前缀：emoji、引号、方括号等符号（不含字母/数字/空白）
 // 例：`🍎 第275章 基石序列的新标准` 这类站点水印前缀
@@ -11,7 +20,7 @@ const CHAPTER_REGEX_LIST = [
   /^[^\p{L}\p{N}\s]{0,4}\s*第?\s*[0-9０-９〇一二两三四五六七八九十○零百千万亿兩]{1,6}\s*[章节回卷节折篇幕集话話][^\n]*/iu
 ];
 
-const CHAPTER_KEYWORDS = ['章', '回', '卷', '节', '折', '篇', '幕', '集', '話'];
+const CHAPTER_KEYWORDS = ['章', '回', '卷', '节', '折', '篇', '幕', '集', '话', '話'];
 const PURE_CHAPTER_HEADING_REGEX = /^第?\s*[0-9０-９〇一二两三四五六七八九十○零百千万亿兩]{1,6}\s*[章节回卷节折篇幕集话話]\s*$/;
 
 // 需要剥离的 Unicode 空白字符（.trim() 不覆盖的部分）
@@ -81,16 +90,105 @@ function wideTrim(line) {
 }
 
 /**
- * 解析章节
- * @param {string} text - 完整小说文本
- * @returns {Array<{title: string, content: string}>} 章节列表
+ * 向下寻找第一行非空内容（番茄格式的附录内标题校验用）
+ * @param {string[]} lines
+ * @param {number} start
+ * @returns {string}
  */
-export function parseChapters(text) {
+function findNextNonEmptyLine(lines, start) {
+  for (let i = start; i < lines.length; i++) {
+    const trimmed = wideTrim(lines[i]);
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+/**
+ * 把章末段评附录解析成「段落下标 -> 评论列表」
+ *
+ * 定位优先级：
+ * 1. 正文内联标记 〔段评N〕 所在的段落（最可靠，标记就在正文里）
+ * 2. 附录条目的「原始段索引」（导出器可能写错，仅作兜底）
+ * 3. 都对不上的归入 orphans（章末段评），不丢数据
+ *
+ * @param {string[]} appendixLines - 附录原始行
+ * @param {Map<number, number>} markerParas - 标记序号 N -> 段落下标
+ * @param {number} paragraphCount - 本章段落数
+ * @returns {{total: number, spans: Array, orphans: Array}|null}
+ */
+function buildFanqieNotes(appendixLines, markerParas, paragraphCount) {
+  const entries = parseFanqieAppendix(appendixLines);
+  if (entries.size === 0) return null;
+
+  const spanMap = new Map(); // para -> { para, comments: [] }
+  const orphans = [];
+  let total = 0;
+
+  for (const entry of entries.values()) {
+    if (entry.comments.length === 0) continue;
+
+    let para = markerParas.has(entry.n) ? markerParas.get(entry.n) : null;
+    if (para === null && /^\d+$/.test(entry.rawIndex)) {
+      const raw = Number(entry.rawIndex);
+      if (raw < paragraphCount) para = raw;
+    }
+
+    if (para === null) {
+      orphans.push({ rawIndex: entry.rawIndex, comments: entry.comments });
+    } else {
+      if (!spanMap.has(para)) spanMap.set(para, { para, comments: [] });
+      spanMap.get(para).comments.push(...entry.comments);
+    }
+    total += entry.comments.length;
+  }
+
+  if (total === 0) return null;
+
+  const spans = [...spanMap.values()].sort((a, b) => a.para - b.para);
+  for (const span of spans) {
+    span.comments.sort((a, b) => b.likes - a.likes);
+  }
+
+  return { total, spans, orphans };
+}
+
+/**
+ * 解析章节
+ *
+ * 默认行为与原实现完全一致；传入 `{ fanqie: true }` 时才启用番茄导出格式清洗：
+ * 剥离「章节更新时间」行、正文内联〔段评N〕标记、章末整块段评附录，
+ * 并把段评解析成 chapter.notes（不丢数据，供阅读器渲染）。
+ *
+ * @param {string} text - 完整小说文本
+ * @param {{fanqie?: boolean}} [options]
+ * @returns {Array<{title: string, content: string, notes?: object}>} 章节列表
+ */
+export function parseChapters(text, options = {}) {
+  const fanqie = options.fanqie === true;
   const chapters = [];
   const lines = text.split('\n');
   let currentChapter = null;
   let currentContent = [];
   let lastChapterIndex = null; // 最近一个已识别章节的阿拉伯数字序号
+
+  // 番茄格式状态（仅在 fanqie 模式下使用）
+  let inAppendix = false;
+  let appendixLines = [];
+  let markerParas = new Map();
+  let paragraphCount = 0;
+
+  const flushChapter = () => {
+    if (currentChapter === null) return;
+    const content = currentContent.join('\n').trim();
+    if (content.length === 0) return;
+
+    const chapter = { title: currentChapter, content };
+    if (fanqie && appendixLines.length > 0) {
+      const notes = buildFanqieNotes(appendixLines, markerParas, paragraphCount);
+      if (notes) chapter.notes = notes;
+    }
+    chapters.push(chapter);
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -110,19 +208,33 @@ export function parseChapters(text) {
       }
     }
 
-    if (isChapterTitle) {
-      if (currentChapter !== null) {
-        const content = currentContent.join('\n').trim();
-        if (content.length > 0) {
-          chapters.push({ title: currentChapter, content });
-        }
+    // 番茄格式的段评附录里可能有人评论「第N章…」，用「下一行是章节更新时间」确认是真标题，
+    // 避免把读者评论误切成章节
+    if (isChapterTitle && fanqie && inAppendix) {
+      const nextLine = findNextNonEmptyLine(lines, i + 1);
+      if (nextLine && !FANQIE_TIME_RE.test(nextLine)) {
+        isChapterTitle = false;
       }
+    }
+
+    if (isChapterTitle) {
+      flushChapter();
+      inAppendix = false;
+      appendixLines = [];
+      markerParas = new Map();
+      paragraphCount = 0;
 
       // 章节标题：沿用 trimmedLine 中的无前导空白版本
       let chapterTitle = matchedTitle || trimmedLine;
       if (PURE_CHAPTER_HEADING_REGEX.test(chapterTitle)) {
         const nextLine = lines[i + 1]?.trim();
-        if (nextLine && nextLine.length > 0 && nextLine.length < 15 && !/^第/.test(nextLine)) {
+        if (
+          nextLine &&
+          nextLine.length > 0 &&
+          nextLine.length < 15 &&
+          !/^第/.test(nextLine) &&
+          !(fanqie && FANQIE_TIME_RE.test(nextLine))
+        ) {
           chapterTitle = chapterTitle + ' ' + nextLine;
           i++;
         }
@@ -134,23 +246,66 @@ export function parseChapters(text) {
       currentChapter = chapterTitle;
       currentContent = [];
     } else if (currentChapter !== null) {
-      // 存入原始行（内含解码后的 Unicode 空白），后续 splitToParagraphs 会用 .trim() 清除
-      currentContent.push(line);
+      if (fanqie) {
+        // 附录开始：之后的行全部交给段评解析，不进正文
+        if (FANQIE_APPENDIX_RE.test(trimmedLine) || FANQIE_EXPORT_HEAD_RE.test(trimmedLine)) {
+          inAppendix = true;
+          continue;
+        }
+        if (inAppendix) {
+          appendixLines.push(line);
+          continue;
+        }
+        // 章节更新时间行：纯导出噪音，直接丢弃
+        if (FANQIE_TIME_RE.test(trimmedLine)) continue;
+
+        const { line: cleanedLine, markers } = stripFanqieMarkers(line);
+        const hasText = wideTrim(cleanedLine).length > 0;
+
+        // 记录标记所在段落：标记在行尾，段落即当前待入正文的这一行
+        if (markers.length > 0) {
+          const para = hasText ? paragraphCount : Math.max(paragraphCount - 1, 0);
+          for (const n of markers) {
+            if (!markerParas.has(n)) markerParas.set(n, para);
+          }
+        }
+        if (hasText) paragraphCount++;
+
+        currentContent.push(cleanedLine);
+      } else {
+        // 存入原始行（内含解码后的 Unicode 空白），后续 splitToParagraphs 会用 .trim() 清除
+        currentContent.push(line);
+      }
     }
   }
 
-  if (currentChapter !== null) {
-    const content = currentContent.join('\n').trim();
-    if (content.length > 0) {
-      chapters.push({ title: currentChapter, content });
-    }
-  }
+  flushChapter();
 
   if (chapters.length === 0) {
     chapters.push({ title: '前言', content: text.trim() });
   }
 
   return chapters;
+}
+
+/**
+ * 解析整本书（自动识别番茄导出格式）
+ *
+ * 非番茄格式：format 为 null，章节结果与 parseChapters(text) 完全一致（不清洗、不改动任何行）。
+ *
+ * @param {string} text
+ * @returns {{format: 'fanqie'|null, meta: object|null, chapters: Array}}
+ */
+export function parseNovel(text) {
+  if (detectFanqie(text)) {
+    return {
+      format: 'fanqie',
+      meta: parseFanqieMeta(text),
+      chapters: parseChapters(text, { fanqie: true })
+    };
+  }
+
+  return { format: null, meta: null, chapters: parseChapters(text) };
 }
 
 /**

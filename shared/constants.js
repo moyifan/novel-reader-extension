@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   BOOK_INDEX: 'bookIndex',
   BOOK_META_PREFIX: 'bookMeta_',
   BOOK_CONTENT_PREFIX: 'bookContent_',
+  BOOK_NOTES_PREFIX: 'bookNotes_',
   SETTINGS: 'settings',
   CURRENT_BOOK_ID: 'currentBookId'
 };
@@ -21,7 +22,8 @@ export const DEFAULT_SETTINGS = {
   autoScroll: false,
   autoScrollSpeed: 30,
   chineseConversion: 'disable',
-  customReplaceRules: ''
+  customReplaceRules: '',
+  notesEnabled: true
 };
 
 // 主题配置

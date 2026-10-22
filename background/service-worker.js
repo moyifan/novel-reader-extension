@@ -12,6 +12,10 @@ function getContentKey(bookId) {
   return `${STORAGE_KEYS.BOOK_CONTENT_PREFIX}${bookId}`;
 }
 
+function getNotesKey(bookId, chapterIndex) {
+  return `${STORAGE_KEYS.BOOK_NOTES_PREFIX}${bookId}_${chapterIndex}`;
+}
+
 function storageGet(keys) {
   return new Promise((resolve) => {
     chrome.storage.local.get(keys, resolve);
@@ -31,13 +35,21 @@ function storageRemove(keys) {
 }
 
 function splitBookData(book) {
-  if (!book) return { meta: null, content: null };
+  if (!book) return { meta: null, content: null, notes: {} };
   const { chapters = [], ...metaFields } = book;
+
+  // 段评按章拆到独立键，避免每次打开书籍都传输整本段评
+  const content = chapters.map(({ notes, ...rest }) => rest);
+  const notes = {};
+  chapters.forEach((chapter, index) => {
+    if (chapter && chapter.notes) notes[index] = chapter.notes;
+  });
+
   const meta = {
     ...metaFields,
     totalChapters: metaFields.totalChapters || chapters.length
   };
-  return { meta, content: chapters };
+  return { meta, content, notes };
 }
 
 async function ensureStorageMigrated() {
@@ -89,6 +101,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     GET_BOOK: () => run(() => getBook(message.bookId).then(sendResponse)),
     SAVE_BOOK: () => run(() => saveBook(message.book).then(() => sendResponse({ success: true }))),
     DELETE_BOOK: () => run(() => deleteBook(message.bookId).then(() => sendResponse({ success: true }))),
+    GET_BOOK_NOTES: () => run(() => getBookNotes(message.bookId, message.chapterIndices).then(sendResponse)),
     UPDATE_PROGRESS: () => run(() => updateReadingProgress(message.bookId, message.chapterIndex, message.scrollPercent).then(() => sendResponse({ success: true }))),
     GET_SETTINGS: () => getSettings().then(sendResponse),
     SAVE_SETTINGS: () => saveSettings(message.settings).then(() => sendResponse({ success: true }))
@@ -145,17 +158,23 @@ async function getBook(bookId) {
 async function saveBook(book) {
   if (!book || !book.id) return;
 
-  const { meta, content } = splitBookData(book);
+  const { meta, content, notes } = splitBookData(book);
   const indexData = await storageGet(STORAGE_KEYS.BOOK_INDEX);
   const bookIndex = Array.isArray(indexData[STORAGE_KEYS.BOOK_INDEX]) ? indexData[STORAGE_KEYS.BOOK_INDEX] : [];
   const exists = bookIndex.includes(book.id);
   const nextIndex = exists ? bookIndex : [...bookIndex, book.id];
 
-  await storageSet({
+  const payload = {
     [STORAGE_KEYS.BOOK_INDEX]: nextIndex,
     [getMetaKey(book.id)]: meta,
     [getContentKey(book.id)]: content
-  });
+  };
+
+  for (const [chapterIndex, chapterNotes] of Object.entries(notes)) {
+    payload[getNotesKey(book.id, chapterIndex)] = chapterNotes;
+  }
+
+  await storageSet(payload);
 }
 
 async function deleteBook(bookId) {
@@ -165,8 +184,39 @@ async function deleteBook(bookId) {
   const bookIndex = Array.isArray(indexData[STORAGE_KEYS.BOOK_INDEX]) ? indexData[STORAGE_KEYS.BOOK_INDEX] : [];
   const nextIndex = bookIndex.filter((id) => id !== bookId);
 
+  // 段评按章独立存储，删除时一并清理
+  const metaData = await storageGet(getMetaKey(bookId));
+  const totalChapters = metaData[getMetaKey(bookId)]?.totalChapters || 0;
+  const notesKeys = [];
+  for (let i = 0; i < totalChapters; i++) {
+    notesKeys.push(getNotesKey(bookId, i));
+  }
+
   await storageSet({ [STORAGE_KEYS.BOOK_INDEX]: nextIndex });
-  await storageRemove([getMetaKey(bookId), getContentKey(bookId)]);
+  await storageRemove([getMetaKey(bookId), getContentKey(bookId), ...notesKeys]);
+}
+
+/**
+ * 批量读取指定章节的段评（阅读器按窗口懒加载）
+ * @param {string} bookId
+ * @param {number[]} chapterIndices
+ * @returns {Promise<Object<number, object>>}
+ */
+async function getBookNotes(bookId, chapterIndices) {
+  if (!bookId) return {};
+
+  const indices = Array.isArray(chapterIndices) ? chapterIndices : [];
+  if (indices.length === 0) return {};
+
+  const keys = indices.map((index) => getNotesKey(bookId, index));
+  const data = await storageGet(keys);
+
+  const result = {};
+  for (const index of indices) {
+    const notes = data[getNotesKey(bookId, index)];
+    if (notes) result[index] = notes;
+  }
+  return result;
 }
 
 async function updateReadingProgress(bookId, chapterIndex, scrollPercent) {

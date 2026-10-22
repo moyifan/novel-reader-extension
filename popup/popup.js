@@ -1,9 +1,9 @@
-﻿// Popup 逻辑
+// Popup 逻辑
 
 import { escapeHtml, generateId, decodeHtmlEntities } from '../shared/utils.js';
 import { detectEncoding } from '../shared/encoding.js';
 import { getBooks, saveBook, deleteBook } from '../shared/storage.js';
-import { parseChapters } from '../shared/parser.js';
+import { parseNovel } from '../shared/parser.js';
 
 // DOM 元素
 const bookList = document.getElementById('bookList');
@@ -34,13 +34,18 @@ function renderBookList() {
     return;
   }
 
-  bookList.innerHTML = books.map(book => `
+  bookList.innerHTML = books.map(book => {
+    const subline = [book.author, book.wordCount, book.bookStatus].filter(Boolean).join(' · ');
+    return `
     <div class="book-item" data-book-id="${book.id}">
-      <span class="book-name">${escapeHtml(book.name)}</span>
+      <div class="book-info">
+        <div class="book-name">${escapeHtml(book.name)}</div>
+        ${subline ? `<div class="book-sub">${escapeHtml(subline)}</div>` : ''}
+      </div>
       <span class="book-meta">${(book.lastChapterIndex || 0) + 1}/${book.totalChapters || '?'}</span>
       <button class="delete-btn" data-delete-id="${book.id}">删除</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   bookList.querySelectorAll('.book-item').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -87,12 +92,23 @@ fileInput.addEventListener('change', async (e) => {
     const text = decodeHtmlEntities(rawText);
     console.log('HTML entities decoded, length:', text.length);
 
-    const chapters = parseChapters(text);
-    console.log('Chapters parsed:', chapters.length);
+    // 自动识别番茄导出格式（含段评附录）；普通 txt 走原解析路径
+    const { format, meta, chapters } = parseNovel(text);
+    console.log('Chapters parsed:', chapters.length, 'format:', format);
+
+    const fileBaseName = file.name.replace(/\.txt$/i, '');
+    const bookName = (meta && meta.name) || fileBaseName;
+    const hasNotes = chapters.some(chapter => chapter.notes && chapter.notes.total > 0);
 
     const book = {
-      id: generateId() + '_' + file.name.replace(/\.txt$/i, '').replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_'),
-      name: file.name.replace(/\.txt$/i, ''),
+      id: generateId() + '_' + bookName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_'),
+      name: bookName,
+      author: (meta && meta.author) || '',
+      intro: (meta && meta.intro) || '',
+      wordCount: (meta && meta.wordCount) || '',
+      bookStatus: (meta && meta.status) || '',
+      notesFormat: format,
+      hasNotes,
       addedAt: Date.now(),
       lastReadAt: Date.now(),
       lastChapterIndex: 0,

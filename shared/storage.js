@@ -27,6 +27,18 @@ export async function updateProgress(bookId, chapterIndex, scrollPercent) {
   }, resolve));
 }
 
+/**
+ * 批量读取章节段评
+ * @param {string} bookId
+ * @param {number[]} chapterIndices
+ * @returns {Promise<Object<number, object>>} 章节下标 -> 段评数据
+ */
+export async function getBookNotes(bookId, chapterIndices) {
+  return new Promise((resolve) => chrome.runtime.sendMessage({
+    type: 'GET_BOOK_NOTES', bookId, chapterIndices
+  }, resolve));
+}
+
 export async function getSettings() {
   return new Promise((resolve) => chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, resolve));
 }

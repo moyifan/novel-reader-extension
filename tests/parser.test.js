@@ -168,3 +168,33 @@ run('前导全角空格不干扰章节识别', () => {
   assert.equal(chapters[0].title, '第5章 新的开始');
   assert.ok(chapters[0].content.includes('「正文内容」'));
 });
+
+run('正文以「二话不说」开头不会被切成章节', () => {
+  const text = [
+    '第221章 终局',
+    '二话不说，直接掀了灵堂的棺盖。',
+    '二话不说就勾引着所有怨魂朝我跑来。',
+    '第222章 继续',
+    '正文二'
+  ].join('\n');
+
+  const chapters = parseChapters(text);
+  assert.equal(chapters.length, 2);
+  assert.equal(chapters[0].title, '第221章 终局');
+  assert.equal(chapters[1].title, '第222章 继续');
+  assert.ok(chapters[0].content.includes('二话不说，直接掀了灵堂的棺盖。'));
+});
+
+run('简体「第N话」仍能识别为章节', () => {
+  const text = [
+    '第1话 起始',
+    '内容一',
+    '第2话 继续',
+    '内容二'
+  ].join('\n');
+
+  const chapters = parseChapters(text);
+  assert.equal(chapters.length, 2);
+  assert.equal(chapters[0].title, '第1话 起始');
+  assert.equal(chapters[1].title, '第2话 继续');
+});

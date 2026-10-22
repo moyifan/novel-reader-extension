@@ -27,6 +27,7 @@ const speechPitchDisplay = document.getElementById('speechPitchDisplay');
 const speechPitchSlider = document.getElementById('speechPitch');
 const menuListHiddenCheckbox = document.getElementById('menuListHidden');
 const hidePreferencesButtonCheckbox = document.getElementById('hidePreferencesButton');
+const notesEnabledCheckbox = document.getElementById('notesEnabled');
 const dblclickPauseCheckbox = document.getElementById('dblclickPause');
 const scrollAnimateCheckbox = document.getElementById('scrollAnimate');
 const saveBtn = document.getElementById('saveBtn');
@@ -86,6 +87,7 @@ function applyToUI() {
   // 界面控制
   menuListHiddenCheckbox.checked = settings.menuListHidden || false;
   hidePreferencesButtonCheckbox.checked = settings.hidePreferencesButton || false;
+  notesEnabledCheckbox.checked = settings.notesEnabled !== false;
   dblclickPauseCheckbox.checked = settings.dblclickPause !== false;
   scrollAnimateCheckbox.checked = settings.scrollAnimate || false;
 }
@@ -193,6 +195,10 @@ function bindEvents() {
 
   hidePreferencesButtonCheckbox.addEventListener('change', () => {
     settings.hidePreferencesButton = hidePreferencesButtonCheckbox.checked;
+  });
+
+  notesEnabledCheckbox.addEventListener('change', () => {
+    settings.notesEnabled = notesEnabledCheckbox.checked;
   });
 
   dblclickPauseCheckbox.addEventListener('change', () => {

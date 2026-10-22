@@ -1,7 +1,7 @@
 // 阅读器页面逻辑
 import { SKINS, convertChinese, applyReplaceRules } from '../shared/constants.js';
 import { escapeHtml, decodeHtmlEntities, shouldIgnoreShortcut } from '../shared/utils.js';
-import { getBook as fetchBook, getSettings, saveSettings, updateProgress } from '../shared/storage.js';
+import { getBook as fetchBook, getSettings, saveSettings, updateProgress, getBookNotes } from '../shared/storage.js';
 
 let book = null;
 let settings = null;
@@ -22,6 +22,11 @@ const contentDiv = document.getElementById('content');
 const readerMain = document.getElementById('readerMain');
 const tocSidebar = document.getElementById('tocSidebar');
 const tocList = document.getElementById('tocList');
+const tocMeta = document.getElementById('tocMeta');
+const tocMetaLine = document.getElementById('tocMetaLine');
+const tocIntro = document.getElementById('tocIntro');
+const tocIntroToggle = document.getElementById('tocIntroToggle');
+const tocIntroBody = document.getElementById('tocIntroBody');
 const settingsBtn = document.getElementById('settingsBtn');
 const closeTocBtn = document.getElementById('closeToc');
 const settingsOverlay = document.getElementById('settingsOverlay');
@@ -37,6 +42,14 @@ const themeBtns = document.querySelectorAll('.theme-btn');
 const autoReadRadios = document.querySelectorAll('input[name="autoRead"]');
 const saveSettingsBtn = document.getElementById('saveSettings');
 const toast = document.getElementById('toast');
+
+// 段评 DOM
+const notesBtn = document.getElementById('notesBtn');
+const notesDrawer = document.getElementById('notesDrawer');
+const notesDrawerTitle = document.getElementById('notesDrawerTitle');
+const notesDrawerSub = document.getElementById('notesDrawerSub');
+const notesDrawerBody = document.getElementById('notesDrawerBody');
+const closeNotesBtn = document.getElementById('closeNotes');
 
 // 语音控制元素
 const speechStartBtn = document.getElementById('speechStart');
@@ -78,18 +91,441 @@ function processContent(text) {
   return result;
 }
 
-function splitToParagraphs(content, options = {}) {
-  const lines = content.split('\n');
-  const result = [];
+// ========== 段落渲染 ==========
+// 段评按章懒加载，避免打开书籍时传输整本段评
+const notesCache = new Map();       // chapterIndex -> notes|null
+const notesPending = new Map();     // chapterIndex -> Promise
+const noteQuoteCache = new Map();   // chapterIndex -> 段落纯文本数组
 
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.length > 0) {
-      result.push('<p>' + escapeHtml(trimmed) + '</p>');
+function renderParagraphs(content, chapterIndex) {
+  const lines = content.split('\n');
+  const texts = [];
+  const html = [];
+  let paraIndex = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    texts.push(trimmed);
+    html.push(`<p data-para="${paraIndex}">${escapeHtml(trimmed)}</p>`);
+    paraIndex++;
+  }
+
+  noteQuoteCache.set(chapterIndex, texts);
+  return html.join('\n');
+}
+
+// ========== 段评角标 ==========
+function notesVisible() {
+  return !!(settings && settings.notesEnabled !== false && book && book.hasNotes);
+}
+
+function notePillHtml(chapterIndex, para, count) {
+  return `<button class="note-pill" data-chapter="${chapterIndex}" data-para="${para}" title="${count} 条段评">💬 ${count}</button>`;
+}
+
+function applyNoteBadges(chapterIndex) {
+  const section = contentDiv.querySelector(`[data-chapter-index="${chapterIndex}"]`);
+  if (!section) return;
+
+  // 先清掉旧角标/整段可点标记，再按当前数据重建（避免重复注入）
+  section.querySelectorAll('p.has-notes').forEach(el => el.classList.remove('has-notes'));
+  section.querySelectorAll('.note-pill, .chapter-end-notes').forEach(el => el.remove());
+  if (!notesVisible()) return;
+
+  const notes = notesCache.get(chapterIndex);
+  if (!notes) return;
+
+  for (const span of notes.spans || []) {
+    const paragraph = section.querySelector(`p[data-para="${span.para}"]`);
+    if (!paragraph) continue;
+    paragraph.classList.add('has-notes');
+    paragraph.insertAdjacentHTML('beforeend', notePillHtml(chapterIndex, span.para, span.comments.length));
+  }
+
+  if (notes.orphans && notes.orphans.length > 0) {
+    const total = notes.orphans.reduce((sum, item) => sum + item.comments.length, 0);
+    section.insertAdjacentHTML('beforeend',
+      `<div class="chapter-end-notes"><button class="note-pill" data-chapter="${chapterIndex}" data-orphan="1" title="无法定位到具体段落的段评">💬 章末段评 ${total}</button></div>`);
+  }
+}
+
+async function ensureNotes(chapterIndex) {
+  if (!notesVisible()) return null;
+
+  if (notesCache.has(chapterIndex)) {
+    applyNoteBadges(chapterIndex);
+    return notesCache.get(chapterIndex);
+  }
+
+  let pending = notesPending.get(chapterIndex);
+  if (!pending) {
+    pending = getBookNotes(book.id, [chapterIndex])
+      .then(result => {
+        const notes = (result && result[chapterIndex]) || null;
+        notesCache.set(chapterIndex, notes);
+        notesPending.delete(chapterIndex);
+        applyNoteBadges(chapterIndex);
+        return notes;
+      })
+      .catch(error => {
+        console.error('loadBookNotes error:', error);
+        notesCache.set(chapterIndex, null);
+        notesPending.delete(chapterIndex);
+        return null;
+      });
+    notesPending.set(chapterIndex, pending);
+  }
+
+  return pending;
+}
+
+// ========== 段评抽屉 ==========
+function noteItemElement(comment) {
+  const item = document.createElement('div');
+  item.className = 'note-item';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'note-avatar';
+  avatar.textContent = (comment.user || '?').trim().charAt(0) || '?';
+
+  const main = document.createElement('div');
+  main.className = 'note-main';
+
+  const head = document.createElement('div');
+  head.className = 'note-head';
+
+  const user = document.createElement('span');
+  user.className = 'note-user';
+  user.textContent = comment.user || '匿名读者';
+
+  if (comment.cross) {
+    const tag = document.createElement('span');
+    tag.className = 'note-tag';
+    tag.textContent = '跨段';
+    head.appendChild(tag);
+  }
+
+  const likes = document.createElement('span');
+  likes.className = 'note-likes';
+  likes.textContent = `♥ ${comment.likes || 0}`;
+
+  head.appendChild(user);
+  head.appendChild(likes);
+  main.appendChild(head);
+
+  if (comment.text) {
+    const text = document.createElement('div');
+    text.className = 'note-text';
+    text.textContent = comment.text;
+    main.appendChild(text);
+  }
+
+  if (comment.images && comment.images.length > 0) {
+    const gallery = document.createElement('div');
+    gallery.className = 'note-images';
+    for (const url of comment.images) {
+      const img = document.createElement('img');
+      img.className = 'note-image';
+      img.loading = 'lazy';
+      img.alt = '段评图片';
+      img.src = url;
+      // 外链签名会过期，加载失败直接移除，避免破图
+      img.addEventListener('error', () => img.remove());
+      gallery.appendChild(img);
+    }
+    main.appendChild(gallery);
+  }
+
+  item.appendChild(avatar);
+  item.appendChild(main);
+  return item;
+}
+
+function noteQuoteElement(text) {
+  const quote = document.createElement('div');
+  quote.className = 'note-quote';
+  quote.textContent = text || '';
+  return quote;
+}
+
+// 正文在“整个窗口”内居中，目录栏不参与居中计算：
+// 目录展开时内容按窗口中心落位，避免目录和正文之间空出一大条。
+function updateContentAlignment() {
+  const wrapper = contentDiv.closest('.reader-content-wrapper');
+  if (!wrapper) return;
+
+  const main = wrapper.parentElement;
+  const viewport = document.documentElement.clientWidth || window.innerWidth;
+  const tocWidth = tocSidebar.classList.contains('hidden') ? 0 : tocSidebar.offsetWidth;
+  const paddingLeft = parseFloat(window.getComputedStyle(main).paddingLeft) || 0;
+  const wrapWidth = wrapper.offsetWidth;
+
+  const centeredLeft = (viewport - wrapWidth) / 2;
+  const marginLeft = Math.max(0, Math.round(centeredLeft - tocWidth - paddingLeft));
+
+  wrapper.style.marginLeft = `${marginLeft}px`;
+  wrapper.style.marginRight = 'auto';
+
+  positionNotesDrawer();
+}
+
+// 抽屉贴正文列右边缘，而不是贴窗口右边；窄屏放不下时回退贴右
+const NOTES_DRAWER_WIDTH = 380;
+const NOTES_DRAWER_GAP = 16;
+
+function positionNotesDrawer() {
+  if (!notesDrawer || notesDrawer.classList.contains('hidden')) return;
+
+  const wrapper = document.querySelector('.reader-content-wrapper');
+  if (!wrapper) return;
+
+  const rect = wrapper.getBoundingClientRect();
+  const wrapperStyle = window.getComputedStyle(wrapper);
+  const paddingRight = parseFloat(wrapperStyle.paddingRight) || 0;
+  const textRight = rect.right - paddingRight;
+  const viewport = document.documentElement.clientWidth || window.innerWidth;
+
+  const left = Math.round(textRight + NOTES_DRAWER_GAP);
+  const width = Math.min(NOTES_DRAWER_WIDTH, viewport - left - NOTES_DRAWER_GAP);
+
+  if (width >= 280) {
+    notesDrawer.classList.add('anchored');
+    notesDrawer.style.left = `${left}px`;
+    notesDrawer.style.right = 'auto';
+    notesDrawer.style.width = `${Math.round(width)}px`;
+  } else {
+    // 空间不足：回退为原来的贴窗口右侧（覆盖式）
+    notesDrawer.classList.remove('anchored');
+    notesDrawer.style.left = '';
+    notesDrawer.style.right = '';
+    notesDrawer.style.width = '';
+  }
+}
+
+// 抽屉配色跟随正文区域（body/皮肤可能只改 .reader-main，如「图书双层」）
+function syncDrawerPalette() {
+  const main = document.querySelector('.reader-main');
+  if (!main) return;
+
+  const mainStyle = window.getComputedStyle(main);
+  const bodyStyle = window.getComputedStyle(document.body);
+
+  const mainBg = mainStyle.backgroundColor;
+  const transparent = !mainBg || mainBg === 'transparent' || mainBg === 'rgba(0, 0, 0, 0)';
+
+  notesDrawer.style.backgroundColor = transparent ? bodyStyle.backgroundColor : mainBg;
+  notesDrawer.style.color = mainStyle.color || bodyStyle.color;
+}
+
+// 抽屉当前展示的内容，用于「再次点击同一入口关闭」
+// kind: 'span'（单段） / 'orphans'（章末段评） / 'chapter'（本章段评列表）
+let notesDrawerContext = null;
+
+function isNotesDrawerOpen(kind, chapterIndex, para = null) {
+  if (!notesDrawerContext || notesDrawer.classList.contains('hidden')) return false;
+  if (notesDrawerContext.kind !== kind) return false;
+  if (notesDrawerContext.chapterIndex !== chapterIndex) return false;
+  return kind !== 'span' || notesDrawerContext.para === para;
+}
+
+function openNotesDrawer() {
+  notesDrawer.classList.remove('hidden');
+  document.body.classList.add('notes-open');
+  syncDrawerPalette();
+  positionNotesDrawer();
+}
+
+function closeNotesDrawer() {
+  notesDrawer.classList.add('hidden');
+  document.body.classList.remove('notes-open');
+  notesDrawerContext = null;
+  clearActiveParagraph();
+}
+
+function clearActiveParagraph() {
+  contentDiv.querySelectorAll('p.note-active').forEach(el => el.classList.remove('note-active'));
+}
+
+function markActiveParagraph(chapterIndex, para) {
+  clearActiveParagraph();
+  const section = contentDiv.querySelector(`[data-chapter-index="${chapterIndex}"]`);
+  const paragraph = section && section.querySelector(`p[data-para="${para}"]`);
+  if (paragraph) paragraph.classList.add('note-active');
+}
+
+function renderNotesDrawerTitle(title, sub) {
+  notesDrawerTitle.textContent = sub ? `${title} · ${sub}` : title;
+  notesDrawerSub.textContent = '';
+  notesDrawerSub.classList.add('hidden');
+}
+
+function renderSingleSpanDrawer(chapterIndex, para) {
+  const notes = notesCache.get(chapterIndex);
+  if (!notes) return;
+  const span = (notes.spans || []).find(item => item.para === para);
+  if (!span) return;
+
+  renderNotesDrawerTitle('段评', `第 ${chapterIndex + 1} 章 · ${span.comments.length} 条`);
+  notesDrawerBody.innerHTML = '';
+  notesDrawerBody.appendChild(noteQuoteElement((noteQuoteCache.get(chapterIndex) || [])[para]));
+
+  const list = document.createElement('div');
+  list.className = 'note-list';
+  for (const comment of span.comments) {
+    list.appendChild(noteItemElement(comment));
+  }
+  notesDrawerBody.appendChild(list);
+  markActiveParagraph(chapterIndex, para);
+  notesDrawerContext = { kind: 'span', chapterIndex, para };
+  openNotesDrawer();
+}
+
+function renderOrphansDrawer(chapterIndex) {
+  const notes = notesCache.get(chapterIndex);
+  if (!notes) return;
+  const total = (notes.orphans || []).reduce((sum, item) => sum + item.comments.length, 0);
+  renderNotesDrawerTitle('章末段评', `第 ${chapterIndex + 1} 章 · ${total} 条（无法定位到具体段落）`);
+
+  notesDrawerBody.innerHTML = '';
+  for (const orphan of notes.orphans || []) {
+    const heading = document.createElement('div');
+    heading.className = 'note-orphan-title';
+    heading.textContent = orphan.rawIndex ? `原始段索引 ${orphan.rawIndex}` : '未定位段评';
+    notesDrawerBody.appendChild(heading);
+    for (const comment of orphan.comments) {
+      notesDrawerBody.appendChild(noteItemElement(comment));
+    }
+  }
+  notesDrawerContext = { kind: 'orphans', chapterIndex };
+  clearActiveParagraph();
+  openNotesDrawer();
+}
+
+function renderChapterNotesDrawer(chapterIndex) {
+  const notes = notesCache.get(chapterIndex);
+  if (!notes) return;
+
+  const spanCount = (notes.spans || []).length;
+  renderNotesDrawerTitle('本章段评', `第 ${chapterIndex + 1} 章 · ${notes.total} 条 / ${spanCount} 段`);
+  notesDrawerBody.innerHTML = '';
+
+  const tip = document.createElement('div');
+  tip.className = 'note-drawer-tip';
+  tip.textContent = '数据为导出选摘：每章最多前 30 个有评段落，每段仅热门前 5 条。';
+  notesDrawerBody.appendChild(tip);
+
+  const quoteTexts = noteQuoteCache.get(chapterIndex) || [];
+  for (const span of notes.spans || []) {
+    const block = document.createElement('div');
+    block.className = 'note-span-block';
+
+    const quote = noteQuoteElement(quoteTexts[span.para]);
+    quote.title = '跳转到该段落';
+    quote.addEventListener('click', () => jumpToParagraph(chapterIndex, span.para));
+    block.appendChild(quote);
+
+    for (const comment of span.comments) {
+      block.appendChild(noteItemElement(comment));
+    }
+    notesDrawerBody.appendChild(block);
+  }
+
+  if (notes.orphans && notes.orphans.length > 0) {
+    const heading = document.createElement('div');
+    heading.className = 'note-orphan-title';
+    heading.textContent = '章末段评';
+    notesDrawerBody.appendChild(heading);
+    for (const orphan of notes.orphans) {
+      for (const comment of orphan.comments) {
+        notesDrawerBody.appendChild(noteItemElement(comment));
+      }
     }
   }
 
-  return result.join('\n');
+  notesDrawerContext = { kind: 'chapter', chapterIndex };
+  clearActiveParagraph();
+  openNotesDrawer();
+}
+
+function jumpToParagraph(chapterIndex, para) {
+  const section = contentDiv.querySelector(`[data-chapter-index="${chapterIndex}"]`);
+  const paragraph = section && section.querySelector(`p[data-para="${para}"]`);
+  if (!paragraph) return;
+
+  paragraph.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  paragraph.classList.add('note-target');
+  setTimeout(() => paragraph.classList.remove('note-target'), 1600);
+  closeNotesDrawer();
+}
+
+async function openNoteForPill(button) {
+  const chapterIndex = Number(button.dataset.chapter);
+  if (!Number.isFinite(chapterIndex)) return;
+
+  const isOrphan = button.dataset.orphan === '1';
+  const para = isOrphan ? null : Number(button.dataset.para);
+
+  // 同一入口再次点击 → 关闭
+  if (isNotesDrawerOpen(isOrphan ? 'orphans' : 'span', chapterIndex, para)) {
+    closeNotesDrawer();
+    return;
+  }
+
+  const notes = await ensureNotes(chapterIndex);
+  if (!notes) return;
+
+  if (isOrphan) {
+    renderOrphansDrawer(chapterIndex);
+  } else {
+    renderSingleSpanDrawer(chapterIndex, para);
+  }
+}
+
+async function openParagraphNotes(chapterIndex, para) {
+  // 同一段再次点击 → 关闭
+  if (isNotesDrawerOpen('span', chapterIndex, para)) {
+    closeNotesDrawer();
+    return;
+  }
+
+  const notes = await ensureNotes(chapterIndex);
+  if (!notes) return;
+  renderSingleSpanDrawer(chapterIndex, para);
+}
+
+async function openChapterNotesDrawer() {
+  // 「本章段评」再次点击 → 关闭
+  if (isNotesDrawerOpen('chapter', currentChapterIndex)) {
+    closeNotesDrawer();
+    return;
+  }
+
+  const notes = await ensureNotes(currentChapterIndex);
+  if (!notes) {
+    showToast('本章暂无段评');
+    return;
+  }
+  renderChapterNotesDrawer(currentChapterIndex);
+}
+
+// 设置变化后刷新角标显示
+function refreshRenderedNotes() {
+  contentDiv.querySelectorAll('.chapter-section').forEach(section => {
+    const index = Number(section.dataset.chapterIndex);
+    if (Number.isFinite(index)) ensureNotes(index);
+  });
+}
+
+function updateNotesButtonVisibility() {
+  if (!notesBtn) return;
+  const visible = !!(book && book.hasNotes) && settings.notesEnabled !== false;
+  notesBtn.classList.toggle('hidden', !visible);
+  if (!visible) {
+    contentDiv.querySelectorAll('p.has-notes').forEach(el => el.classList.remove('has-notes'));
+    contentDiv.querySelectorAll('.note-pill, .chapter-end-notes').forEach(el => el.remove());
+    closeNotesDrawer();
+  }
 }
 
 // 滚动加载和目录联动逻辑（窗口化渲染）
@@ -111,7 +547,7 @@ function renderChapterSection(index, append = true) {
   const processedTitle = processContent(chapter.title);
   const chapterHtml = `<div class="chapter-section" data-chapter-index="${index}">
     <h2 class="chapter-title">${escapeHtml(processedTitle)}</h2>
-    ${splitToParagraphs(processedContent)}
+    ${renderParagraphs(processedContent, index)}
   </div>`;
 
   if (append) {
@@ -119,6 +555,9 @@ function renderChapterSection(index, append = true) {
   } else {
     contentDiv.insertAdjacentHTML('afterbegin', chapterHtml);
   }
+
+  applyNoteBadges(index);
+  ensureNotes(index);
 }
 
 function renderChapterWindow(centerIndex) {
@@ -272,6 +711,7 @@ function updateTOCByScroll() {
 function scrollToChapter(index) {
   if (index < 0 || index >= book.totalChapters) return;
 
+  closeNotesDrawer();
   currentChapterIndex = index;
   renderChapterWindow(index);
 
@@ -406,6 +846,13 @@ function applySettings() {
   if (settings.menuListHidden) {
     tocSidebar.classList.add('hidden');
   }
+
+  // 段评角标开关
+  updateContentAlignment();
+  updateNotesButtonVisibility();
+  refreshRenderedNotes();
+  syncDrawerPalette();
+  positionNotesDrawer();
 }
 
 // 初始化设置面板的输入框
@@ -423,6 +870,8 @@ function initSettingInputs() {
 // 渲染书籍
 function renderBook() {
   bookTitle.textContent = book.name;
+  renderBookMeta();
+
   const chapter = book.chapters[currentChapterIndex];
   if (!chapter) return;
 
@@ -646,27 +1095,61 @@ function handleKeydown(e) {
   // 设置面板是模态层：打开时只响应 Esc，避免面板内操作被快捷键打断
   if (!settingsOverlay.classList.contains('hidden') && key !== 'escape') return;
 
-  const matched = SHORTCUTS.find((shortcut) => getShortcutKey(shortcut) === key);
-  if (matched) {
-    matched.run();
+  if (key === 'escape') {
+    closeNotesDrawer();
+    closeAllPanels();
     return;
   }
 
-  if (key === 'escape') closeAllPanels();
+  const matched = SHORTCUTS.find((shortcut) => getShortcutKey(shortcut) === key);
+  if (matched) {
+    matched.run();
+  }
 }
 
 function closeAllPanels() {
   settingsOverlay.classList.add('hidden');
   tocSidebar.classList.add('hidden');
+  closeNotesDrawer();
 }
 
 // ========== 目录 ==========
+// 书名下的作者/字数/连载状态 + 可折叠简介（仅带元信息的格式显示）
+function renderBookMeta() {
+  const lineText = [book.author, book.wordCount, book.bookStatus].filter(Boolean).join(' · ');
+  const hasIntro = Boolean(book.intro);
+
+  tocMeta.classList.toggle('hidden', !lineText && !hasIntro);
+  tocMetaLine.textContent = lineText;
+  tocMetaLine.classList.toggle('hidden', !lineText);
+
+  tocIntro.classList.toggle('hidden', !hasIntro);
+  if (hasIntro) {
+    tocIntroBody.textContent = book.intro;
+  }
+  setIntroExpanded(false);
+}
+
+function setIntroExpanded(expanded) {
+  tocIntroBody.classList.toggle('hidden', !expanded);
+  tocIntroToggle.classList.toggle('expanded', expanded);
+  tocIntroToggle.setAttribute('aria-expanded', String(expanded));
+}
+
+function toggleIntro() {
+  setIntroExpanded(tocIntroBody.classList.contains('hidden'));
+}
+
 function toggleTOC(show) {
   if (show === undefined) {
     tocSidebar.classList.toggle('hidden');
   } else {
     tocSidebar.classList.toggle('hidden', !show);
   }
+
+  // 目录开合会改变正文列位置，抽屉跟着重新贴边（等过渡结束再算一次）
+  updateContentAlignment();
+  setTimeout(updateContentAlignment, 320);
 }
 
 function toggleSettingsPanel(show) {
@@ -678,10 +1161,47 @@ function toggleSettingsPanel(show) {
 }
 
 closeTocBtn.addEventListener('click', () => toggleTOC(false));
+tocIntroToggle.addEventListener('click', toggleIntro);
 // 目录点击事件 - 使用事件委托
 tocList.addEventListener('click', (e) => {
   const li = e.target.closest('li');
   if (li) scrollToChapter(parseInt(li.dataset.index));
+});
+
+// ========== 段评交互 ==========
+notesBtn.addEventListener('click', openChapterNotesDrawer);
+closeNotesBtn.addEventListener('click', closeNotesDrawer);
+
+// 段尾角标 / 有段评的段落点击（事件委托，章节区块滚动重建后依然有效）
+contentDiv.addEventListener('click', (event) => {
+  if (!notesVisible()) return;
+
+  const pill = event.target.closest('.note-pill');
+  if (pill) {
+    event.preventDefault();
+    openNoteForPill(pill);
+    return;
+  }
+
+  // 整段可点；正在选中文字（复制）时不触发
+  const paragraph = event.target.closest('p[data-para]');
+  if (!paragraph) return;
+
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed) return;
+
+  const section = paragraph.closest('.chapter-section');
+  if (!section) return;
+
+  const chapterIndex = Number(section.dataset.chapterIndex);
+  const para = Number(paragraph.dataset.para);
+  if (!Number.isFinite(chapterIndex) || !Number.isFinite(para)) return;
+
+  const notes = notesCache.get(chapterIndex);
+  const hasSpan = notes && (notes.spans || []).some(span => span.para === para);
+  if (!hasSpan) return;
+
+  openParagraphNotes(chapterIndex, para);
 });
 
 // ========== 设置面板 ==========
@@ -784,6 +1304,9 @@ document.addEventListener('visibilitychange', () => {
     }
   }
 });
+
+// 窗口尺寸变化时，正文重新居中、抽屉继续贴着正文列
+window.addEventListener('resize', updateContentAlignment);
 
 // 初始化
 init();
