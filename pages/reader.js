@@ -249,8 +249,8 @@ function noteItemElement(comment) {
       img.className = 'note-image';
       img.loading = 'lazy';
       img.decoding = 'async';
-      img.width = 72;
-      img.height = 72;
+      img.width = 160;
+      img.height = 160;
       img.alt = '段评图片';
       img.src = url;
       // 外链签名会过期，加载失败直接移除，避免破图
